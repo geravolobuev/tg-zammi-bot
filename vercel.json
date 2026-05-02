@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "functions": {
+    "api/webhook.js": {
+      "maxDuration": 60
+    },
+    "api/webapp-submit.js": {
+      "maxDuration": 60
+    },
+    "api/webapp-scan.js": {
+      "maxDuration": 60
+    },
+    "api/webapp-save-text.js": {
+      "maxDuration": 60
+    },
+    "api/webapp-ocr.js": {
+      "maxDuration": 60
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/webapp",
+      "destination": "/webapp/index.html"
+    }
+  ]
+}

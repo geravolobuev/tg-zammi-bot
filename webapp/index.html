@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Book Highlighter</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+      :root {
+        --bg: #f7f3e8;
+        --ink: #2d2418;
+        --accent: #d86f2d;
+        --line: #d6c5a8;
+        --green: #1f9d64;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        background: radial-gradient(circle at top, #fff9ef 0, var(--bg) 60%);
+        color: var(--ink);
+      }
+      .wrap { max-width: 860px; margin: 0 auto; padding: 14px 12px 28px; }
+      h1 { margin: 0 0 8px; font-size: 22px; }
+      .hint { margin: 0 0 10px; font-size: 14px; }
+
+      .camera {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+        margin-bottom: 10px;
+      }
+      .camera video {
+        width: 100%;
+        max-height: 42vh;
+        background: #151515;
+        border-radius: 8px;
+        display: block;
+      }
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px;
+        margin-bottom: 10px;
+      }
+      button,
+      .file-label {
+        border: 1px solid var(--line);
+        background: #fff;
+        color: var(--ink);
+        padding: 8px 12px;
+        border-radius: 10px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+      button.primary { background: var(--accent); color: #fff; border-color: #b85b22; }
+      button.good { background: var(--green); color: #fff; border-color: #187949; }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      input[type="file"] { display: none; }
+
+      .preview {
+        border: 1px dashed var(--line);
+        border-radius: 12px;
+        padding: 8px;
+        background: #fffdf8;
+      }
+      .preview img {
+        width: 100%;
+        border-radius: 8px;
+        display: block;
+      }
+
+      .panel {
+        margin-top: 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: #fff;
+        padding: 10px;
+      }
+      .panel-head { font-size: 14px; margin-bottom: 8px; }
+      textarea {
+        width: 100%;
+        min-height: 220px;
+        resize: vertical;
+        border: 1px solid #e0d2b7;
+        border-radius: 10px;
+        padding: 10px;
+        font: 15px/1.45 "Georgia", serif;
+        color: #1f1a12;
+        background: #fffdf9;
+      }
+      .meta,
+      .status { margin-top: 8px; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1>Book Highlighter</h1>
+      <p class="hint">Сфотографируй страницу, нажми OCR через OpenRouter, выдели нужный фрагмент в тексте и сохрани.</p>
+
+      <div class="camera">
+        <video id="cameraVideo" playsinline autoplay muted></video>
+        <div class="toolbar">
+          <button id="captureBtn" type="button" class="primary">Сфотографировать</button>
+          <label class="file-label" for="photoInput">Загрузить из галереи</label>
+          <input id="photoInput" type="file" accept="image/*" />
+          <button id="ocrBtn" type="button" class="good">OCR весь текст (OpenRouter)</button>
+        </div>
+      </div>
+
+      <div class="preview">
+        <img id="previewImage" alt="preview" />
+      </div>
+      <div id="meta" class="meta">Фото не выбрано</div>
+
+      <div class="panel">
+        <div class="panel-head">Распознанный текст (выдели нужный фрагмент в этом поле)</div>
+        <textarea id="ocrText" placeholder="После OCR текст появится здесь..."></textarea>
+        <div class="toolbar">
+          <button id="saveSelectionBtn" type="button" class="good">Сохранить выделенный фрагмент</button>
+          <button id="saveAllBtn" type="button">Сохранить весь текст</button>
+        </div>
+      </div>
+
+      <div id="status" class="status"></div>
+    </div>
+
+    <script>
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        tg.ready();
+        tg.expand();
+      }
+
+      const cameraVideo = document.getElementById("cameraVideo");
+      const captureBtn = document.getElementById("captureBtn");
+      const photoInput = document.getElementById("photoInput");
+      const ocrBtn = document.getElementById("ocrBtn");
+      const saveSelectionBtn = document.getElementById("saveSelectionBtn");
+      const saveAllBtn = document.getElementById("saveAllBtn");
+      const previewImage = document.getElementById("previewImage");
+      const ocrText = document.getElementById("ocrText");
+      const meta = document.getElementById("meta");
+      const statusEl = document.getElementById("status");
+
+      let cameraStream = null;
+      let image = null;
+      const qs = new URLSearchParams(window.location.search);
+      const activeBook = String(qs.get("book") || "").trim();
+
+      function setStatus(text, isError = false) {
+        statusEl.textContent = text;
+        statusEl.style.color = isError ? "#b30000" : "#2d2418";
+      }
+
+      async function stopCamera() {
+        if (cameraStream) {
+          cameraStream.getTracks().forEach((t) => t.stop());
+          cameraStream = null;
+        }
+        cameraVideo.srcObject = null;
+      }
+
+      async function startCamera() {
+        try {
+          await stopCamera();
+          cameraStream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: "environment",
+              width: { ideal: 2560 },
+              height: { ideal: 1440 }
+            }
+          });
+          cameraVideo.srcObject = cameraStream;
+          setStatus("Камера готова. Сделай фото или загрузи из галереи.");
+        } catch {
+          setStatus("Не удалось открыть камеру. Используй загрузку из галереи.", true);
+        }
+      }
+
+      function setImage(img) {
+        image = img;
+        previewImage.src = img.src;
+        meta.textContent = `Фото: ${img.width}x${img.height}`;
+        ocrText.value = "";
+      }
+
+      function captureFrame() {
+        if (!cameraStream || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
+          setStatus("Камера еще не готова. Подожди 1-2 секунды.", true);
+          return;
+        }
+
+        const c = document.createElement("canvas");
+        c.width = cameraVideo.videoWidth;
+        c.height = cameraVideo.videoHeight;
+        const cctx = c.getContext("2d");
+        cctx.drawImage(cameraVideo, 0, 0, c.width, c.height);
+
+        const img = new Image();
+        img.onload = () => setImage(img);
+        img.src = c.toDataURL("image/png");
+      }
+
+      function toScanImageDataUrl() {
+        const maxSide = 2200;
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
+        const w = Math.max(1, Math.round(image.width * scale));
+        const h = Math.max(1, Math.round(image.height * scale));
+
+        const c = document.createElement("canvas");
+        c.width = w;
+        c.height = h;
+        const cctx = c.getContext("2d");
+        cctx.imageSmoothingEnabled = true;
+        cctx.imageSmoothingQuality = "high";
+        cctx.drawImage(image, 0, 0, w, h);
+
+        return c.toDataURL("image/jpeg", 0.95);
+      }
+
+      function normalizeText(text) {
+        return String(text || "")
+          .replace(/\u00ad/g, "")
+          .replace(/[ \t]+\n/g, "\n")
+          .replace(/\n{3,}/g, "\n\n")
+          .replace(/[ \t]{2,}/g, " ")
+          .trim();
+      }
+
+      function getSelectedTextFromTextarea() {
+        const start = ocrText.selectionStart;
+        const end = ocrText.selectionEnd;
+        if (start === end) return "";
+        return ocrText.value.slice(start, end).trim();
+      }
+
+      async function saveText(text) {
+        if (!tg?.initData) {
+          throw new Error("Открой это в Telegram Web App");
+        }
+        const response = await fetch("/api/webapp-save-text", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            initData: tg.initData,
+            text,
+            bookTitle: activeBook || undefined
+          })
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          if (payload?.error === "BOOK_NOT_SELECTED") {
+            throw new Error("Сначала выбери книгу командой /book Название книги");
+          }
+          throw new Error(payload?.error || "save failed");
+        }
+      }
+
+      captureBtn.addEventListener("click", captureFrame);
+
+      photoInput.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const bitmap = await createImageBitmap(file);
+        const c = document.createElement("canvas");
+        c.width = bitmap.width;
+        c.height = bitmap.height;
+        c.getContext("2d").drawImage(bitmap, 0, 0);
+
+        const img = new Image();
+        img.onload = () => setImage(img);
+        img.src = c.toDataURL("image/png");
+      });
+
+      ocrBtn.addEventListener("click", async () => {
+        if (!image) {
+          setStatus("Сначала сделай фото или загрузи изображение.", true);
+          return;
+        }
+        if (!tg?.initData) {
+          setStatus("Открой это в Telegram Web App, иначе OCR не пройдет.", true);
+          return;
+        }
+
+        ocrBtn.disabled = true;
+        setStatus("Запускаю OCR через OpenRouter...");
+
+        try {
+          const response = await fetch("/api/webapp-ocr", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              initData: tg.initData,
+              imageDataUrl: toScanImageDataUrl()
+            })
+          });
+          const payload = await response.json();
+          if (!response.ok || !payload.ok || typeof payload.text !== "string") {
+            throw new Error(payload?.error || "OCR failed");
+          }
+
+          const text = normalizeText(payload.text);
+          if (!text) {
+            throw new Error("Пустой OCR результат");
+          }
+
+          ocrText.value = text;
+          setStatus("OCR готов. Выдели нужный фрагмент в поле текста и нажми сохранить.");
+          tg?.HapticFeedback?.notificationOccurred?.("success");
+        } catch (error) {
+          const message = String(error?.message || "");
+          if (message.includes("OPENROUTER_AUTH_ERROR")) {
+            setStatus("Ошибка OpenRouter API ключа. Проверь OPENROUTER_API_KEY.", true);
+          } else if (message.includes("OPENROUTER_QUOTA_ERROR")) {
+            setStatus("У OpenRouter закончилась бесплатная квота. Попробуй позже.", true);
+          } else {
+            setStatus(`Ошибка OCR: ${message}`, true);
+          }
+          tg?.HapticFeedback?.notificationOccurred?.("error");
+        } finally {
+          ocrBtn.disabled = false;
+        }
+      });
+
+      saveSelectionBtn.addEventListener("click", async () => {
+        const selected = getSelectedTextFromTextarea();
+        if (!selected) {
+          setStatus("Выдели текст в поле OCR перед сохранением.", true);
+          return;
+        }
+
+        saveSelectionBtn.disabled = true;
+        setStatus("Сохраняю выделенный фрагмент...");
+        try {
+          await saveText(selected);
+          setStatus("Готово. Выделенный фрагмент сохранен в Saved Messages.");
+          tg?.HapticFeedback?.notificationOccurred?.("success");
+        } catch (error) {
+          setStatus(`Ошибка сохранения: ${error.message}`, true);
+          tg?.HapticFeedback?.notificationOccurred?.("error");
+        } finally {
+          saveSelectionBtn.disabled = false;
+        }
+      });
+
+      saveAllBtn.addEventListener("click", async () => {
+        const text = normalizeText(ocrText.value);
+        if (!text) {
+          setStatus("Поле OCR пустое. Сначала выполни OCR.", true);
+          return;
+        }
+
+        saveAllBtn.disabled = true;
+        setStatus("Сохраняю весь текст...");
+        try {
+          await saveText(text);
+          setStatus("Готово. Весь текст сохранен в Saved Messages.");
+          tg?.HapticFeedback?.notificationOccurred?.("success");
+        } catch (error) {
+          setStatus(`Ошибка сохранения: ${error.message}`, true);
+          tg?.HapticFeedback?.notificationOccurred?.("error");
+        } finally {
+          saveAllBtn.disabled = false;
+        }
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) stopCamera();
+      });
+
+      previewImage.src = "";
+      if (activeBook) {
+        meta.textContent = `Текущая книга: ${activeBook}`;
+      }
+      startCamera();
+    </script>
+  </body>
+</html>
