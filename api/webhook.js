@@ -16,8 +16,7 @@ const BOT_COMMANDS = [
   { command: "books", description: "Список ваших книг" },
   { command: "notes", description: "Заметки книги: /notes Название" },
   { command: "export", description: "Экспорт заметок в MD" },
-  { command: "delete", description: "Удалить книгу: /delete Название" },
-  { command: "app", description: "Открыть Mini App" }
+  { command: "delete", description: "Удалить книгу: /delete Название" }
 ];
 
 let commandsSynced = false;
@@ -253,8 +252,8 @@ function isBooksCommand(text) {
   return /^\/books(?:@\w+)?$/i.test(text.trim());
 }
 
-function isAppCommand(text) {
-  return /^\/app(?:@\w+)?$/i.test(text.trim()) || /^\/start(?:@\w+)?$/i.test(text.trim());
+function isStartCommand(text) {
+  return /^\/start(?:@\w+)?$/i.test(text.trim());
 }
 
 function parseBookCommand(text) {
@@ -407,25 +406,6 @@ function buildWebAppUrl(baseUrl, currentBook) {
   } catch {
     return baseUrl;
   }
-}
-
-async function sendAppLauncher(token, chatId, webAppUrl) {
-  await telegramRequest(token, "sendMessage", {
-    chat_id: chatId,
-    text: "Открой мини-приложение и сохрани текст в выбранную книгу.",
-    reply_markup: {
-      inline_keyboard: [
-        [
-          {
-            text: "Открыть Highlight App",
-            web_app: {
-              url: webAppUrl
-            }
-          }
-        ]
-      ]
-    }
-  });
 }
 
 async function sendBooksPicker(token, chatId, userId) {
@@ -609,10 +589,17 @@ async function handleTextMessage(token, openRouterApiKey, openRouterModel, webAp
     return;
   }
 
-  if (isAppCommand(text)) {
-    const current = await getCurrentBook(userId);
-    const appUrl = buildWebAppUrl(webAppUrl, current);
-    await sendAppLauncher(token, chatId, appUrl);
+  if (isStartCommand(text)) {
+    await telegramRequest(token, "sendMessage", {
+      chat_id: chatId,
+      text:
+        "Команды:\n" +
+        "/books - список книг\n" +
+        "/notes [название] - 5 последних заметок\n" +
+        "/export [название] - экспорт заметок в MD\n" +
+        "/delete <название> - удалить книгу\n\n" +
+        "Чтобы выбрать активную книгу, открой /books и нажми на кнопку книги."
+    });
     return;
   }
 
@@ -624,8 +611,7 @@ async function handleTextMessage(token, openRouterApiKey, openRouterModel, webAp
         "/books - список книг\n" +
         "/notes <название> - заметки по книге\n" +
         "/export [название] - экспорт заметок в MD\n" +
-        "/delete <название> - удалить книгу\n" +
-        "/app - открыть мини-приложение"
+        "/delete <название> - удалить книгу"
     });
     return;
   }
