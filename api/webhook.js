@@ -468,12 +468,16 @@ async function fetchOpenRouterLimits(apiKey) {
 
 async function saveNoteAndNotify(token, chatId, userId, text) {
   const book = await addBookNote(userId, text);
-  const payloadText = `📚 ${book.title}\n\n${text}`;
-
-  await sendLongMessage(token, userId, payloadText);
+  const firstSentence =
+    String(text || "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .match(/.+?[.!?](?=\s|$)/)?.[0] ||
+    String(text || "").replace(/\s+/g, " ").trim();
+  const preview = firstSentence.length > 180 ? `${firstSentence.slice(0, 177)}...` : firstSentence;
   await telegramRequest(token, "sendMessage", {
     chat_id: chatId,
-    text: `Сохранено в книгу: ${book.title}`
+    text: `${preview}\n📚 Сохранено в книгу: ${book.title}`
   });
 }
 
@@ -646,8 +650,7 @@ async function handlePhotoMessage(token, ocrApiKey, ocrModel, message) {
   const fileUrl = await getTelegramFileUrl(token, photo.file_id);
   const recognizedText = await runOpenRouterOcr(ocrApiKey, fileUrl, ocrModel);
 
-  const responseText = `${recognizedText}\n\nСкопируй нужный фрагмент и отправь мне`;
-  await sendLongMessage(token, chatId, responseText);
+  await sendLongMessage(token, chatId, recognizedText);
 }
 
 async function handleCallbackQuery(token, callbackQuery) {
