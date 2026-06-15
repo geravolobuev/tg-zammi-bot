@@ -1,96 +1,84 @@
 # tg-book-highlighter
 
-Telegram-бот для сохранения цитат из бумажных книг с OCR через OpenRouter и Telegram Mini App.
+Standalone web app for saving highlights from paper books with OCR via OpenRouter and storage in Upstash Redis.
 
-## Что умеет
+## What it does
 
-- `/book <название>` - выбрать текущую книгу.
-- `/books` - список книг пользователя.
-- `/notes <название>` - последние заметки конкретной книги.
-- `/last` - 5 последних заметок текущей книги.
-- `/app` - открыть Mini App (фото -> OCR -> выбор фрагмента -> сохранение).
-- `/limits` - показать usage/limit OpenRouter для текущего API ключа.
+- create and switch between books
+- keep one active book
+- upload or photograph a page
+- OCR the full page through OpenRouter
+- edit the recognized text
+- save either the selected fragment or the whole text
+- view the latest 5 notes for the active or selected book
+- export a book's notes as Markdown
+- delete a book with all its notes
 
-Фото в обычном чате с ботом тоже поддерживаются: бот делает OCR и присылает текст, который можно отправить обратно как заметку.
+## Architecture
 
-## Хранение данных
+- frontend: `/webapp/index.html`
+- backend API: Vercel serverless functions
+- OCR: OpenRouter vision models
+- storage: Upstash Redis
 
-Для стабильной работы на Vercel нужно постоянное хранилище.
-Используется Upstash Redis (free):
+## Current auth model
 
-- текущая выбранная книга пользователя
-- список книг пользователя
-- заметки по каждой книге
+This web-only MVP uses a browser-persisted local user ID stored in `localStorage`.
 
-Если `UPSTASH_REDIS_REST_URL` и `UPSTASH_REDIS_REST_TOKEN` не заданы, включается in-memory fallback (для локального MVP, без гарантий сохранности).
+Implication:
+- the same browser keeps access to the same books/notes
+- another browser/device will look like a different user until real auth is added
 
-## Переменные окружения
+## Environment variables
 
-Скопируй `.env.example` в `.env.local`:
+Copy `.env.example` to `.env.local`:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Заполни:
+Fill in:
 
-- `TELEGRAM_BOT_TOKEN` - токен от `@BotFather`
-- `OPENROUTER_API_KEY` - API ключ OpenRouter
-- `OPENROUTER_MODEL` - модель OCR для webhook/фото
-- `OPENROUTER_OCR_MODEL` - модель OCR для Mini App (full-page OCR)
-- `WEBAPP_URL` - URL Mini App, например `https://your-project.vercel.app/webapp`
-- `UPSTASH_REDIS_REST_URL` - Upstash Redis REST URL
-- `UPSTASH_REDIS_REST_TOKEN` - Upstash Redis REST token
-- `TELEGRAM_WEBHOOK_SECRET` - опционально, секрет webhook
+- `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL`
+- `OPENROUTER_OCR_MODEL`
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
-## Локальный запуск
+## Local run
 
 ```bash
-npm i -g vercel
+npm i
 vercel dev
 ```
 
-Проверка:
+Open:
 
-- webhook: `http://localhost:3000/api/webhook`
-- mini app: `http://localhost:3000/webapp`
+- `http://localhost:3000/`
 
-## Деплой на Vercel
+## Deploy to Vercel
 
 ```bash
 vercel --prod
 ```
 
-После деплоя:
+## API endpoints
 
-- App URL: `https://your-project.vercel.app`
-- Webhook URL: `https://your-project.vercel.app/api/webhook`
-- Mini App URL: `https://your-project.vercel.app/webapp`
+- `GET /api/books` - list books + current book
+- `POST /api/books` - create/select active book (`{ title }`)
+- `DELETE /api/books?title=...` - delete book
+- `GET /api/notes?title=...` - last 5 notes for a book or current book
+- `POST /api/notes` - save note (`{ text, bookTitle? }`)
+- `GET /api/export?title=...` - download Markdown export
+- `POST /api/ocr` - OCR a page (`{ imageDataUrl }`)
 
-## Установка webhook
+All API requests identify the current browser via `x-user-id` header set by the frontend.
 
-Без секрета:
+## Main files
 
-```bash
-curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://your-project.vercel.app/api/webhook"
-```
-
-С секретом:
-
-```bash
-curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=https://your-project.vercel.app/api/webhook&secret_token=<TELEGRAM_WEBHOOK_SECRET>"
-```
-
-Проверка:
-
-```bash
-curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/getWebhookInfo"
-```
-
-## Структура
-
-- `api/webhook.js` - команды Telegram, OCR фото, сохранение заметок
-- `api/lib/book-store.js` - хранение книг и заметок (Upstash Redis + fallback)
-- `api/webapp-ocr.js` - OCR полной страницы из Mini App
-- `api/webapp-save-text.js` - сохранение выбранного текста из Mini App
-- `webapp/index.html` - UI Mini App
+- `api/lib/book-store.js` - Upstash-backed storage for books and notes
+- `api/books.js` - book CRUD + active book selection
+- `api/notes.js` - save note + latest 5 notes
+- `api/export.js` - Markdown export
+- `api/ocr.js` - OCR through OpenRouter
+- `webapp/index.html` - standalone web UI

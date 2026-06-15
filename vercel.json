@@ -1,23 +1,16 @@
 {
   "version": 2,
   "functions": {
-    "api/webhook.js": {
-      "maxDuration": 60
-    },
-    "api/webapp-submit.js": {
-      "maxDuration": 60
-    },
-    "api/webapp-scan.js": {
-      "maxDuration": 60
-    },
-    "api/webapp-save-text.js": {
-      "maxDuration": 60
-    },
-    "api/webapp-ocr.js": {
-      "maxDuration": 60
-    }
+    "api/books.js": { "maxDuration": 60 },
+    "api/notes.js": { "maxDuration": 60 },
+    "api/export.js": { "maxDuration": 60 },
+    "api/ocr.js": { "maxDuration": 60 }
   },
   "rewrites": [
+    {
+      "source": "/",
+      "destination": "/webapp/index.html"
+    },
     {
       "source": "/webapp",
       "destination": "/webapp/index.html"

@@ -4,163 +4,346 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Book Highlighter</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
       :root {
         --bg: #f7f3e8;
+        --panel: #fffdf8;
         --ink: #2d2418;
+        --muted: #7e6c57;
         --accent: #d86f2d;
-        --line: #d6c5a8;
-        --green: #1f9d64;
+        --accent-2: #1f9d64;
+        --line: #ddcfb5;
+        --danger: #b94a48;
       }
       * { box-sizing: border-box; }
       body {
         margin: 0;
-        font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+        font-family: Inter, system-ui, -apple-system, sans-serif;
+        color: var(--ink);
         background: radial-gradient(circle at top, #fff9ef 0, var(--bg) 60%);
-        color: var(--ink);
       }
-      .wrap { max-width: 860px; margin: 0 auto; padding: 14px 12px 28px; }
-      h1 { margin: 0 0 8px; font-size: 22px; }
-      .hint { margin: 0 0 10px; font-size: 14px; }
-
-      .camera {
+      .wrap { max-width: 1060px; margin: 0 auto; padding: 18px 14px 36px; }
+      h1 { margin: 0 0 6px; font-size: 30px; }
+      .sub { color: var(--muted); margin-bottom: 16px; }
+      .grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; }
+      .card {
+        background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #fff;
-        padding: 10px;
-        margin-bottom: 10px;
+        border-radius: 14px;
+        padding: 14px;
+        box-shadow: 0 6px 24px rgba(60, 40, 10, 0.05);
       }
-      .camera video {
+      .card h2 { margin: 0 0 10px; font-size: 18px; }
+      .row, .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+      input[type="text"], textarea {
         width: 100%;
-        max-height: 42vh;
-        background: #151515;
-        border-radius: 8px;
-        display: block;
-      }
-      .toolbar {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-top: 8px;
-        margin-bottom: 10px;
-      }
-      button,
-      .file-label {
         border: 1px solid var(--line);
-        background: #fff;
-        color: var(--ink);
-        padding: 8px 12px;
         border-radius: 10px;
-        font-size: 14px;
-        cursor: pointer;
+        padding: 10px 12px;
+        background: white;
+        color: var(--ink);
       }
-      button.primary { background: var(--accent); color: #fff; border-color: #b85b22; }
-      button.good { background: var(--green); color: #fff; border-color: #187949; }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
-      input[type="file"] { display: none; }
-
+      textarea {
+        min-height: 260px;
+        resize: vertical;
+        font: 15px/1.5 Georgia, serif;
+      }
+      button, .file-label {
+        border: 1px solid var(--line);
+        background: white;
+        color: var(--ink);
+        border-radius: 10px;
+        padding: 9px 12px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      button.primary { background: var(--accent); color: white; border-color: #b85b22; }
+      button.good { background: var(--accent-2); color: white; border-color: #17714a; }
+      button.danger { background: white; color: var(--danger); border-color: #d5a5a5; }
+      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      .status { margin-top: 10px; font-size: 14px; color: var(--muted); white-space: pre-wrap; }
+      .status.error { color: #b30000; }
+      .book-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+      .book-item {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: white;
+        padding: 10px;
+      }
+      .book-item.active { border-color: var(--accent); background: #fff7f0; }
+      .book-head { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
+      .book-title { font-weight: 600; }
+      .book-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
       .preview {
+        margin-top: 12px;
         border: 1px dashed var(--line);
         border-radius: 12px;
-        padding: 8px;
-        background: #fffdf8;
+        min-height: 140px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
       }
-      .preview img {
-        width: 100%;
-        border-radius: 8px;
-        display: block;
+      .preview img, .preview video { width: 100%; display: block; }
+      .notes-list { display: flex; flex-direction: column; gap: 10px; }
+      .note-item { border-top: 1px solid var(--line); padding-top: 10px; }
+      .note-item:first-child { border-top: none; padding-top: 0; }
+      .note-time { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+      .hidden { display: none !important; }
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: 1fr; }
       }
-
-      .panel {
-        margin-top: 12px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #fff;
-        padding: 10px;
-      }
-      .panel-head { font-size: 14px; margin-bottom: 8px; }
-      textarea {
-        width: 100%;
-        min-height: 220px;
-        resize: vertical;
-        border: 1px solid #e0d2b7;
-        border-radius: 10px;
-        padding: 10px;
-        font: 15px/1.45 "Georgia", serif;
-        color: #1f1a12;
-        background: #fffdf9;
-      }
-      .meta,
-      .status { margin-top: 8px; font-size: 13px; }
     </style>
   </head>
   <body>
     <div class="wrap">
       <h1>Book Highlighter</h1>
-      <p class="hint">Сфотографируй страницу, нажми OCR через OpenRouter, выдели нужный фрагмент в тексте и сохрани.</p>
+      <div class="sub">Standalone web app: книги, OCR страницы, правка текста, сохранение и экспорт в Markdown.</div>
 
-      <div class="camera">
-        <video id="cameraVideo" playsinline autoplay muted></video>
-        <div class="toolbar">
-          <button id="captureBtn" type="button" class="primary">Сфотографировать</button>
-          <label class="file-label" for="photoInput">Загрузить из галереи</label>
-          <input id="photoInput" type="file" accept="image/*" />
-          <button id="ocrBtn" type="button" class="good">OCR весь текст (OpenRouter)</button>
-        </div>
+      <div class="grid">
+        <aside class="card">
+          <h2>Книги</h2>
+          <div class="row">
+            <input id="newBookInput" type="text" placeholder="Название книги" />
+            <button id="addBookBtn" class="primary">Добавить</button>
+          </div>
+          <div id="currentBookLabel" class="status">Активная книга не выбрана</div>
+          <div id="booksList" class="book-list"></div>
+        </aside>
+
+        <main class="card">
+          <h2>OCR и сохранение</h2>
+          <div class="toolbar">
+            <button id="startCameraBtn">Включить камеру</button>
+            <button id="captureBtn" class="primary">Сфотографировать</button>
+            <label class="file-label" for="photoInput">Загрузить фото</label>
+            <input id="photoInput" class="hidden" type="file" accept="image/*" />
+            <button id="ocrBtn" class="good">Распознать текст</button>
+            <button id="saveSelectionBtn">Сохранить выделенное</button>
+            <button id="saveAllBtn">Сохранить весь текст</button>
+          </div>
+
+          <div class="preview">
+            <video id="cameraVideo" playsinline autoplay muted class="hidden"></video>
+            <img id="previewImage" alt="preview" class="hidden" />
+            <div id="emptyPreview">Фото ещё не выбрано</div>
+          </div>
+
+          <div id="imageMeta" class="status">Нет изображения</div>
+          <textarea id="ocrText" placeholder="После OCR текст появится здесь. Его можно исправить и затем сохранить."></textarea>
+          <div id="mainStatus" class="status"></div>
+        </main>
       </div>
 
-      <div class="preview">
-        <img id="previewImage" alt="preview" />
-      </div>
-      <div id="meta" class="meta">Фото не выбрано</div>
-
-      <div class="panel">
-        <div class="panel-head">Распознанный текст (выдели нужный фрагмент в этом поле)</div>
-        <textarea id="ocrText" placeholder="После OCR текст появится здесь..."></textarea>
-        <div class="toolbar">
-          <button id="saveSelectionBtn" type="button" class="good">Сохранить выделенный фрагмент</button>
-          <button id="saveAllBtn" type="button">Сохранить весь текст</button>
-        </div>
-      </div>
-
-      <div id="status" class="status"></div>
+      <section class="card" style="margin-top: 14px;">
+        <h2>Последние 5 заметок активной книги</h2>
+        <div id="notesList" class="notes-list"></div>
+      </section>
     </div>
 
     <script>
-      const tg = window.Telegram?.WebApp;
-      if (tg) {
-        tg.ready();
-        tg.expand();
-      }
+      const STORAGE_USER_KEY = 'book_highlighter_user_id';
+      const STORAGE_BOOK_KEY = 'book_highlighter_active_book_hint';
 
-      const cameraVideo = document.getElementById("cameraVideo");
-      const captureBtn = document.getElementById("captureBtn");
-      const photoInput = document.getElementById("photoInput");
-      const ocrBtn = document.getElementById("ocrBtn");
-      const saveSelectionBtn = document.getElementById("saveSelectionBtn");
-      const saveAllBtn = document.getElementById("saveAllBtn");
-      const previewImage = document.getElementById("previewImage");
-      const ocrText = document.getElementById("ocrText");
-      const meta = document.getElementById("meta");
-      const statusEl = document.getElementById("status");
+      const newBookInput = document.getElementById('newBookInput');
+      const addBookBtn = document.getElementById('addBookBtn');
+      const currentBookLabel = document.getElementById('currentBookLabel');
+      const booksList = document.getElementById('booksList');
+      const notesList = document.getElementById('notesList');
+      const cameraVideo = document.getElementById('cameraVideo');
+      const previewImage = document.getElementById('previewImage');
+      const emptyPreview = document.getElementById('emptyPreview');
+      const startCameraBtn = document.getElementById('startCameraBtn');
+      const captureBtn = document.getElementById('captureBtn');
+      const photoInput = document.getElementById('photoInput');
+      const ocrBtn = document.getElementById('ocrBtn');
+      const saveSelectionBtn = document.getElementById('saveSelectionBtn');
+      const saveAllBtn = document.getElementById('saveAllBtn');
+      const imageMeta = document.getElementById('imageMeta');
+      const ocrText = document.getElementById('ocrText');
+      const mainStatus = document.getElementById('mainStatus');
 
       let cameraStream = null;
       let image = null;
-      const qs = new URLSearchParams(window.location.search);
-      const activeBook = String(qs.get("book") || "").trim();
+      let books = [];
+      let currentBook = null;
+
+      function getUserId() {
+        let id = localStorage.getItem(STORAGE_USER_KEY);
+        if (!id) {
+          id = (crypto.randomUUID ? crypto.randomUUID() : `user_${Date.now()}_${Math.random().toString(16).slice(2)}`);
+          localStorage.setItem(STORAGE_USER_KEY, id);
+        }
+        return id;
+      }
 
       function setStatus(text, isError = false) {
-        statusEl.textContent = text;
-        statusEl.style.color = isError ? "#b30000" : "#2d2418";
+        mainStatus.textContent = text || '';
+        mainStatus.className = `status${isError ? ' error' : ''}`;
+      }
+
+      function apiFetch(url, options = {}) {
+        const headers = new Headers(options.headers || {});
+        headers.set('x-user-id', getUserId());
+        return fetch(url, { ...options, headers });
+      }
+
+      function escapeHtml(text) {
+        return String(text || '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      }
+
+      function formatTs(ts) {
+        const dt = new Date(Number(ts || 0));
+        if (Number.isNaN(dt.getTime())) return '';
+        return dt.toLocaleString('ru-RU', {
+          timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+        });
+      }
+
+      function setCurrentBookUI(book) {
+        currentBook = book || null;
+        if (currentBook?.title) {
+          currentBookLabel.textContent = `Активная книга: ${currentBook.title}`;
+          localStorage.setItem(STORAGE_BOOK_KEY, currentBook.title);
+        } else {
+          currentBookLabel.textContent = 'Активная книга не выбрана';
+          localStorage.removeItem(STORAGE_BOOK_KEY);
+        }
+      }
+
+      function renderBooks() {
+        booksList.innerHTML = '';
+        if (!books.length) {
+          booksList.innerHTML = '<div class="status">Пока нет книг. Добавь первую книгу.</div>';
+          return;
+        }
+        books.forEach((book) => {
+          const item = document.createElement('div');
+          item.className = `book-item${currentBook?.slug === book.slug ? ' active' : ''}`;
+          item.innerHTML = `
+            <div class="book-head">
+              <div class="book-title">${currentBook?.slug === book.slug ? '✅ ' : ''}${escapeHtml(book.title)}</div>
+            </div>
+            <div class="book-actions">
+              <button data-action="select" data-title="${escapeHtml(book.title)}">Выбрать</button>
+              <button data-action="notes" data-title="${escapeHtml(book.title)}">Показать заметки</button>
+              <button data-action="export" data-title="${escapeHtml(book.title)}">Экспорт MD</button>
+              <button data-action="delete" data-title="${escapeHtml(book.title)}" class="danger">Удалить</button>
+            </div>
+          `;
+          booksList.appendChild(item);
+        });
+      }
+
+      function renderNotes(bookTitle, notes) {
+        if (!notes || !notes.length) {
+          notesList.innerHTML = `<div class="status">Для книги "${escapeHtml(bookTitle || currentBook?.title || '')}" пока нет заметок.</div>`;
+          return;
+        }
+        notesList.innerHTML = notes.slice().reverse().map((note, index) => `
+          <div class="note-item">
+            <div class="note-time">${notes.length - index}. ${escapeHtml(formatTs(note.ts))}</div>
+            <div>${escapeHtml(note.text).replace(/\n/g, '<br>')}</div>
+          </div>
+        `).join('');
+      }
+
+      async function refreshBooks() {
+        const response = await apiFetch('/api/books');
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'BOOKS_LOAD_FAILED');
+        books = payload.books || [];
+        setCurrentBookUI(payload.currentBook || null);
+        renderBooks();
+      }
+
+      async function loadNotes(title = '') {
+        const qs = new URLSearchParams();
+        if (title) qs.set('title', title);
+        const response = await apiFetch(`/api/notes${qs.toString() ? `?${qs.toString()}` : ''}`);
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          if (payload?.error === 'BOOK_NOT_SELECTED') {
+            renderNotes('', []);
+            return;
+          }
+          throw new Error(payload?.error || 'NOTES_LOAD_FAILED');
+        }
+        renderNotes(payload.book?.title, payload.notes || []);
+      }
+
+      async function createOrSelectBook(title) {
+        const response = await apiFetch('/api/books', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title })
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'BOOK_SAVE_FAILED');
+        books = payload.books || [];
+        setCurrentBookUI(payload.currentBook || null);
+        renderBooks();
+        await loadNotes(payload.currentBook?.title || '');
+      }
+
+      async function deleteBookByTitle(title) {
+        const response = await apiFetch(`/api/books?title=${encodeURIComponent(title)}`, { method: 'DELETE' });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'BOOK_DELETE_FAILED');
+        books = payload.books || [];
+        setCurrentBookUI(payload.currentBook || null);
+        renderBooks();
+        await loadNotes(payload.currentBook?.title || '');
+      }
+
+      async function exportBook(title = '') {
+        const qs = new URLSearchParams();
+        if (title) qs.set('title', title);
+        const response = await apiFetch(`/api/export${qs.toString() ? `?${qs.toString()}` : ''}`);
+        if (response.headers.get('content-type')?.includes('text/markdown')) {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const disposition = response.headers.get('content-disposition') || '';
+          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+          const fileName = match ? decodeURIComponent(match[1]) : 'notes.md';
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          return;
+        }
+        const payload = await response.json();
+        if (payload?.error === 'BOOK_NOT_SELECTED') throw new Error('Сначала выбери книгу');
+        if (payload?.error === 'NO_NOTES') throw new Error('В этой книге пока нет заметок для экспорта');
+        throw new Error(payload?.error || 'EXPORT_FAILED');
+      }
+
+      async function saveNote(text) {
+        const response = await apiFetch('/api/notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) {
+          if (payload?.error === 'BOOK_NOT_SELECTED') throw new Error('Сначала выбери книгу');
+          throw new Error(payload?.error || 'SAVE_FAILED');
+        }
+        setCurrentBookUI(payload.book || currentBook);
+        await refreshBooks();
+        renderNotes(payload.book?.title, payload.notes || []);
+        setStatus(`📚 Сохранено в книгу: ${payload.book?.title || ''}`);
       }
 
       async function stopCamera() {
-        if (cameraStream) {
-          cameraStream.getTracks().forEach((t) => t.stop());
-          cameraStream = null;
-        }
+        if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
+        cameraStream = null;
         cameraVideo.srcObject = null;
+        cameraVideo.classList.add('hidden');
       }
 
       async function startCamera() {
@@ -168,41 +351,42 @@
           await stopCamera();
           cameraStream = await navigator.mediaDevices.getUserMedia({
             audio: false,
-            video: {
-              facingMode: "environment",
-              width: { ideal: 2560 },
-              height: { ideal: 1440 }
-            }
+            video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 } }
           });
           cameraVideo.srcObject = cameraStream;
-          setStatus("Камера готова. Сделай фото или загрузи из галереи.");
+          cameraVideo.classList.remove('hidden');
+          previewImage.classList.add('hidden');
+          emptyPreview.classList.add('hidden');
+          setStatus('Камера включена. Можно сфотографировать страницу.');
         } catch {
-          setStatus("Не удалось открыть камеру. Используй загрузку из галереи.", true);
+          setStatus('Не удалось открыть камеру. Используй загрузку файла.', true);
         }
       }
 
-      function setImage(img) {
-        image = img;
-        previewImage.src = img.src;
-        meta.textContent = `Фото: ${img.width}x${img.height}`;
-        ocrText.value = "";
+      function setImageFromDataUrl(dataUrl, width, height) {
+        const img = new Image();
+        img.onload = () => {
+          image = img;
+          previewImage.src = dataUrl;
+          previewImage.classList.remove('hidden');
+          cameraVideo.classList.add('hidden');
+          emptyPreview.classList.add('hidden');
+          imageMeta.textContent = `Фото: ${width || img.width}×${height || img.height}`;
+        };
+        img.src = dataUrl;
       }
 
       function captureFrame() {
         if (!cameraStream || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
-          setStatus("Камера еще не готова. Подожди 1-2 секунды.", true);
+          setStatus('Камера ещё не готова.', true);
           return;
         }
-
-        const c = document.createElement("canvas");
-        c.width = cameraVideo.videoWidth;
-        c.height = cameraVideo.videoHeight;
-        const cctx = c.getContext("2d");
-        cctx.drawImage(cameraVideo, 0, 0, c.width, c.height);
-
-        const img = new Image();
-        img.onload = () => setImage(img);
-        img.src = c.toDataURL("image/png");
+        const canvas = document.createElement('canvas');
+        canvas.width = cameraVideo.videoWidth;
+        canvas.height = cameraVideo.videoHeight;
+        canvas.getContext('2d').drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/png');
+        setImageFromDataUrl(dataUrl, canvas.width, canvas.height);
       }
 
       function toScanImageDataUrl() {
@@ -210,173 +394,146 @@
         const scale = Math.min(1, maxSide / Math.max(image.width, image.height));
         const w = Math.max(1, Math.round(image.width * scale));
         const h = Math.max(1, Math.round(image.height * scale));
-
-        const c = document.createElement("canvas");
-        c.width = w;
-        c.height = h;
-        const cctx = c.getContext("2d");
-        cctx.imageSmoothingEnabled = true;
-        cctx.imageSmoothingQuality = "high";
-        cctx.drawImage(image, 0, 0, w, h);
-
-        return c.toDataURL("image/jpeg", 0.95);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(image, 0, 0, w, h);
+        return canvas.toDataURL('image/jpeg', 0.95);
       }
 
       function normalizeText(text) {
-        return String(text || "")
-          .replace(/\u00ad/g, "")
-          .replace(/[ \t]+\n/g, "\n")
-          .replace(/\n{3,}/g, "\n\n")
-          .replace(/[ \t]{2,}/g, " ")
-          .trim();
+        return String(text || '').replace(/\u00ad/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim();
       }
 
-      function getSelectedTextFromTextarea() {
+      function getSelectedText() {
         const start = ocrText.selectionStart;
         const end = ocrText.selectionEnd;
-        if (start === end) return "";
-        return ocrText.value.slice(start, end).trim();
+        return start === end ? '' : ocrText.value.slice(start, end).trim();
       }
 
-      async function saveText(text) {
-        if (!tg?.initData) {
-          throw new Error("Открой это в Telegram Web App");
+      addBookBtn.addEventListener('click', async () => {
+        const title = newBookInput.value.replace(/\s+/g, ' ').trim();
+        if (!title) return;
+        try {
+          await createOrSelectBook(title);
+          newBookInput.value = '';
+          setStatus(`Активная книга: ${title}`);
+        } catch (error) {
+          setStatus(String(error.message || error), true);
         }
-        const response = await fetch("/api/webapp-save-text", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            initData: tg.initData,
-            text,
-            bookTitle: activeBook || undefined
-          })
-        });
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) {
-          if (payload?.error === "BOOK_NOT_SELECTED") {
-            throw new Error("Сначала выбери книгу командой /book Название книги");
+      });
+
+      newBookInput.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter') addBookBtn.click();
+      });
+
+      booksList.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const title = btn.dataset.title || '';
+        const action = btn.dataset.action;
+        try {
+          if (action === 'select') {
+            await createOrSelectBook(title);
+            setStatus(`Активная книга: ${title}`);
+          } else if (action === 'notes') {
+            await loadNotes(title);
+            setStatus(`Показаны последние заметки книги: ${title}`);
+          } else if (action === 'export') {
+            await exportBook(title);
+            setStatus(`Экспорт готов: ${title}`);
+          } else if (action === 'delete') {
+            if (!confirm(`Удалить книгу "${title}" и все её заметки?`)) return;
+            await deleteBookByTitle(title);
+            setStatus(`Книга удалена: ${title}`);
           }
-          throw new Error(payload?.error || "save failed");
+        } catch (error) {
+          setStatus(String(error.message || error), true);
         }
-      }
+      });
 
-      captureBtn.addEventListener("click", captureFrame);
+      startCameraBtn.addEventListener('click', startCamera);
+      captureBtn.addEventListener('click', captureFrame);
 
-      photoInput.addEventListener("change", async (e) => {
+      photoInput.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         const bitmap = await createImageBitmap(file);
-        const c = document.createElement("canvas");
-        c.width = bitmap.width;
-        c.height = bitmap.height;
-        c.getContext("2d").drawImage(bitmap, 0, 0);
-
-        const img = new Image();
-        img.onload = () => setImage(img);
-        img.src = c.toDataURL("image/png");
+        const canvas = document.createElement('canvas');
+        canvas.width = bitmap.width;
+        canvas.height = bitmap.height;
+        canvas.getContext('2d').drawImage(bitmap, 0, 0);
+        setImageFromDataUrl(canvas.toDataURL('image/png'), bitmap.width, bitmap.height);
+        setStatus('Фото загружено. Теперь можно распознать текст.');
       });
 
-      ocrBtn.addEventListener("click", async () => {
+      ocrBtn.addEventListener('click', async () => {
         if (!image) {
-          setStatus("Сначала сделай фото или загрузи изображение.", true);
+          setStatus('Сначала загрузи или сфотографируй страницу.', true);
           return;
         }
-        if (!tg?.initData) {
-          setStatus("Открой это в Telegram Web App, иначе OCR не пройдет.", true);
-          return;
-        }
-
         ocrBtn.disabled = true;
-        setStatus("Запускаю OCR через OpenRouter...");
-
+        setStatus('Распознаю текст...');
         try {
-          const response = await fetch("/api/webapp-ocr", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              initData: tg.initData,
-              imageDataUrl: toScanImageDataUrl()
-            })
+          const response = await apiFetch('/api/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageDataUrl: toScanImageDataUrl() })
           });
           const payload = await response.json();
-          if (!response.ok || !payload.ok || typeof payload.text !== "string") {
-            throw new Error(payload?.error || "OCR failed");
-          }
-
-          const text = normalizeText(payload.text);
-          if (!text) {
-            throw new Error("Пустой OCR результат");
-          }
-
-          ocrText.value = text;
-          setStatus("OCR готов. Выдели нужный фрагмент в поле текста и нажми сохранить.");
-          tg?.HapticFeedback?.notificationOccurred?.("success");
+          if (!response.ok || !payload.ok || typeof payload.text !== 'string') throw new Error(payload?.error || 'OCR failed');
+          ocrText.value = normalizeText(payload.text);
+          setStatus('Текст распознан. Его можно поправить и сохранить.');
         } catch (error) {
-          const message = String(error?.message || "");
-          if (message.includes("OPENROUTER_AUTH_ERROR")) {
-            setStatus("Ошибка OpenRouter API ключа. Проверь OPENROUTER_API_KEY.", true);
-          } else if (message.includes("OPENROUTER_QUOTA_ERROR")) {
-            setStatus("У OpenRouter закончилась бесплатная квота. Попробуй позже.", true);
-          } else {
-            setStatus(`Ошибка OCR: ${message}`, true);
-          }
-          tg?.HapticFeedback?.notificationOccurred?.("error");
+          const message = String(error.message || error);
+          if (message.includes('OPENROUTER_AUTH_ERROR')) setStatus('Ошибка ключа OpenRouter.', true);
+          else if (message.includes('OPENROUTER_QUOTA_ERROR')) setStatus('Закончилась бесплатная квота OpenRouter.', true);
+          else setStatus(`Ошибка OCR: ${message}`, true);
         } finally {
           ocrBtn.disabled = false;
         }
       });
 
-      saveSelectionBtn.addEventListener("click", async () => {
-        const selected = getSelectedTextFromTextarea();
+      saveSelectionBtn.addEventListener('click', async () => {
+        const selected = getSelectedText();
         if (!selected) {
-          setStatus("Выдели текст в поле OCR перед сохранением.", true);
+          setStatus('Сначала выдели нужный фрагмент в тексте.', true);
           return;
         }
-
-        saveSelectionBtn.disabled = true;
-        setStatus("Сохраняю выделенный фрагмент...");
         try {
-          await saveText(selected);
-          setStatus("Готово. Выделенный фрагмент сохранен в Saved Messages.");
-          tg?.HapticFeedback?.notificationOccurred?.("success");
+          await saveNote(selected);
         } catch (error) {
-          setStatus(`Ошибка сохранения: ${error.message}`, true);
-          tg?.HapticFeedback?.notificationOccurred?.("error");
-        } finally {
-          saveSelectionBtn.disabled = false;
+          setStatus(String(error.message || error), true);
         }
       });
 
-      saveAllBtn.addEventListener("click", async () => {
+      saveAllBtn.addEventListener('click', async () => {
         const text = normalizeText(ocrText.value);
         if (!text) {
-          setStatus("Поле OCR пустое. Сначала выполни OCR.", true);
+          setStatus('Текстовое поле пустое.', true);
           return;
         }
-
-        saveAllBtn.disabled = true;
-        setStatus("Сохраняю весь текст...");
         try {
-          await saveText(text);
-          setStatus("Готово. Весь текст сохранен в Saved Messages.");
-          tg?.HapticFeedback?.notificationOccurred?.("success");
+          await saveNote(text);
         } catch (error) {
-          setStatus(`Ошибка сохранения: ${error.message}`, true);
-          tg?.HapticFeedback?.notificationOccurred?.("error");
-        } finally {
-          saveAllBtn.disabled = false;
+          setStatus(String(error.message || error), true);
         }
       });
 
-      document.addEventListener("visibilitychange", () => {
-        if (document.hidden) stopCamera();
-      });
-
-      previewImage.src = "";
-      if (activeBook) {
-        meta.textContent = `Текущая книга: ${activeBook}`;
-      }
-      startCamera();
+      (async function init() {
+        try {
+          await refreshBooks();
+          if (currentBook?.title) await loadNotes(currentBook.title);
+          else renderNotes('', []);
+          const hint = localStorage.getItem(STORAGE_BOOK_KEY);
+          if (!currentBook?.title && hint) setStatus(`Последняя выбранная книга в этом браузере: ${hint}`);
+        } catch (error) {
+          setStatus(`Ошибка инициализации: ${String(error.message || error)}`, true);
+        }
+      })();
     </script>
   </body>
 </html>
