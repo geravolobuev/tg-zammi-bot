@@ -4,14 +4,14 @@ Standalone web app for saving highlights from paper books.
 
 ## Stack
 
-- Supabase Auth (email magic link)
-- Supabase Postgres (books, notes, current book)
+- Supabase Postgres
+- simple custom auth: username + passcode + httpOnly cookie session
 - OpenRouter OCR
 - Vercel serverless
 
 ## What it does
 
-- sign in by email magic link
+- simple sign in / sign up using username + passcode
 - create and switch between books
 - keep one active book per user
 - upload or photograph a page
@@ -33,7 +33,6 @@ cp .env.example .env.local
 Fill in:
 
 - `SUPABASE_URL`
-- `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `OPENROUTER_API_KEY`
 - `OPENROUTER_MODEL`
@@ -43,10 +42,7 @@ Fill in:
 
 Run SQL from `supabase/schema.sql` in the Supabase SQL editor.
 
-In Supabase Auth settings:
-- enable Email auth
-- enable magic links / OTP email sign-in
-- add your site URL to redirect URLs
+This version does not use Supabase Auth. It uses its own simple session tables inside Postgres.
 
 ## Local run
 
@@ -66,8 +62,10 @@ vercel --prod
 
 ## Files
 
-- `supabase/schema.sql` - schema, triggers, indexes, and RLS policies
-- `api/config.js` - public Supabase config for the frontend
-- `api/ocr.js` - OCR endpoint with Supabase-authenticated access
-- `api/lib/supabase.js` - shared Supabase server helpers
+- `supabase/schema.sql` - schema for users, sessions, books, notes
+- `api/auth.js` - sign in / sign up / sign out / current session
+- `api/data.js` - books, active book, notes
+- `api/ocr.js` - OCR endpoint protected by session cookie
+- `api/lib/auth.js` - cookie session helpers
+- `api/lib/supabase.js` - Supabase admin client
 - `webapp/index.html` - standalone web UI

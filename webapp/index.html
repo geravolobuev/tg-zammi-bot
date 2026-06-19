@@ -16,47 +16,17 @@
         --danger: #b94a48;
       }
       * { box-sizing: border-box; }
-      body {
-        margin: 0;
-        font-family: Inter, system-ui, -apple-system, sans-serif;
-        color: var(--ink);
-        background: radial-gradient(circle at top, #fff9ef 0, var(--bg) 60%);
-      }
+      body { margin: 0; font-family: Inter, system-ui, -apple-system, sans-serif; color: var(--ink); background: radial-gradient(circle at top, #fff9ef 0, var(--bg) 60%); }
       .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 14px 36px; }
       h1 { margin: 0 0 6px; font-size: 30px; }
       .sub { color: var(--muted); margin-bottom: 16px; }
       .grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; }
-      .card {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 14px;
-        box-shadow: 0 6px 24px rgba(60, 40, 10, 0.05);
-      }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 6px 24px rgba(60, 40, 10, 0.05); }
       .card h2 { margin: 0 0 10px; font-size: 18px; }
       .row, .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
-      input[type="text"], input[type="email"], textarea {
-        width: 100%;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 10px 12px;
-        background: white;
-        color: var(--ink);
-      }
-      textarea {
-        min-height: 260px;
-        resize: vertical;
-        font: 15px/1.5 Georgia, serif;
-      }
-      button, .file-label {
-        border: 1px solid var(--line);
-        background: white;
-        color: var(--ink);
-        border-radius: 10px;
-        padding: 9px 12px;
-        cursor: pointer;
-        font-size: 14px;
-      }
+      input[type="text"], input[type="password"], textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: white; color: var(--ink); }
+      textarea { min-height: 260px; resize: vertical; font: 15px/1.5 Georgia, serif; }
+      button, .file-label { border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 10px; padding: 9px 12px; cursor: pointer; font-size: 14px; }
       button.primary { background: var(--accent); color: white; border-color: #b85b22; }
       button.good { background: var(--accent-2); color: white; border-color: #17714a; }
       button.danger { background: white; color: var(--danger); border-color: #d5a5a5; }
@@ -69,17 +39,7 @@
       .book-item.active { border-color: var(--accent); background: #fff7f0; }
       .book-title { font-weight: 600; }
       .book-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-      .preview {
-        margin-top: 12px;
-        border: 1px dashed var(--line);
-        border-radius: 12px;
-        min-height: 140px;
-        background: white;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-      }
+      .preview { margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px; min-height: 140px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; }
       .preview img, .preview video { width: 100%; display: block; }
       .notes-list { display: flex; flex-direction: column; gap: 10px; }
       .note-item { border-top: 1px solid var(--line); padding-top: 10px; }
@@ -92,16 +52,17 @@
   <body>
     <div class="wrap">
       <h1>Book Highlighter</h1>
-      <div class="sub">Логин по magic link, книги и заметки в Supabase, OCR через OpenRouter.</div>
+      <div class="sub">Простой вход по username + passcode. Без email, без SMTP, без лишних сервисов.</div>
 
       <section id="authCard" class="card">
         <h2>Вход</h2>
         <div class="row">
-          <input id="emailInput" type="email" placeholder="you@example.com" />
-          <button id="signInBtn" class="primary">Отправить magic link</button>
+          <input id="usernameInput" type="text" placeholder="username" />
+          <input id="passcodeInput" type="password" placeholder="passcode" />
+          <button id="signInBtn" class="primary">Войти / создать</button>
           <button id="signOutBtn" class="hidden">Выйти</button>
         </div>
-        <div id="authStatus" class="status">Войди по email, чтобы открыть книги и заметки.</div>
+        <div id="authStatus" class="status">Введи username и passcode. Если пользователя нет — он будет создан.</div>
       </section>
 
       <section id="appSection" class="hidden">
@@ -145,12 +106,11 @@
       </section>
     </div>
 
-    <script type="module">
-      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-
+    <script>
       const authCard = document.getElementById('authCard');
       const appSection = document.getElementById('appSection');
-      const emailInput = document.getElementById('emailInput');
+      const usernameInput = document.getElementById('usernameInput');
+      const passcodeInput = document.getElementById('passcodeInput');
       const signInBtn = document.getElementById('signInBtn');
       const signOutBtn = document.getElementById('signOutBtn');
       const authStatus = document.getElementById('authStatus');
@@ -172,9 +132,7 @@
       const ocrText = document.getElementById('ocrText');
       const mainStatus = document.getElementById('mainStatus');
 
-      let supabase;
-      let session = null;
-      let profile = null;
+      let currentUser = null;
       let books = [];
       let currentBook = null;
       let cameraStream = null;
@@ -190,48 +148,14 @@
       }
 
       function formatTs(ts) {
-        const dt = new Date(Number(ts || 0));
+        const dt = new Date(ts);
         if (Number.isNaN(dt.getTime())) return '';
         return dt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-      }
-
-      async function loadConfig() {
-        const response = await fetch('/api/config');
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'CONFIG_LOAD_FAILED');
-        supabase = createClient(payload.supabaseUrl, payload.supabaseAnonKey, {
-          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-        });
       }
 
       function setCurrentBookUI(book) {
         currentBook = book || null;
         currentBookLabel.textContent = currentBook?.title ? `Активная книга: ${currentBook.title}` : 'Активная книга не выбрана';
-      }
-
-      async function ensureProfile() {
-        const user = session?.user;
-        if (!user) return;
-        const { data: existing, error: selectError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
-        if (selectError) throw selectError;
-        if (!existing) {
-          const { error: insertError } = await supabase.from('profiles').insert({ id: user.id });
-          if (insertError) throw insertError;
-          const { data: created, error: createdError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-          if (createdError) throw createdError;
-          profile = created;
-        } else {
-          profile = existing;
-        }
-      }
-
-      async function fetchBooks() {
-        const { data, error } = await supabase.from('books').select('*').order('title', { ascending: true });
-        if (error) throw error;
-        books = data || [];
-        const currentBookId = profile?.current_book_id || null;
-        setCurrentBookUI(books.find((b) => b.id === currentBookId) || null);
-        renderBooks();
       }
 
       function renderBooks() {
@@ -269,60 +193,100 @@
         `).join('');
       }
 
-      async function loadNotes(bookId = currentBook?.id) {
-        if (!bookId) { renderNotes('', []); return; }
-        const book = books.find((b) => b.id === bookId);
-        const { data, error } = await supabase
-          .from('notes')
-          .select('id, text, created_at')
-          .eq('book_id', bookId)
-          .order('created_at', { ascending: false })
-          .limit(5);
-        if (error) throw error;
-        renderNotes(book?.title, data || []);
+      async function api(url, options = {}) {
+        const response = await fetch(url, {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+          ...options
+        });
+        let payload = null;
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) payload = await response.json();
+        return { response, payload };
       }
 
-      async function setActiveBook(bookId) {
-        const { error } = await supabase.from('profiles').update({ current_book_id: bookId }).eq('id', session.user.id);
-        if (error) throw error;
-        profile.current_book_id = bookId;
-        setCurrentBookUI(books.find((b) => b.id === bookId) || null);
+      async function getAuthState() {
+        const { response, payload } = await api('/api/auth', { method: 'GET' });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'AUTH_STATE_FAILED');
+        currentUser = payload.user || null;
+        if (!currentUser) {
+          appSection.classList.add('hidden');
+          signOutBtn.classList.add('hidden');
+          setStatus(authStatus, 'Введи username и passcode. Если пользователя нет — он будет создан.');
+          return;
+        }
+        appSection.classList.remove('hidden');
+        signOutBtn.classList.remove('hidden');
+        setStatus(authStatus, `Вошёл как ${currentUser.username}`, 'ok');
+        await refreshData();
+      }
+
+      async function signIn() {
+        const username = String(usernameInput.value || '').trim();
+        const passcode = String(passcodeInput.value || '').trim();
+        if (!username || !passcode) throw new Error('Нужны username и passcode');
+        const { response, payload } = await api('/api/auth', { method: 'POST', body: JSON.stringify({ username, passcode }) });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'LOGIN_FAILED');
+        currentUser = payload.user;
+        passcodeInput.value = '';
+        await getAuthState();
+      }
+
+      async function signOut() {
+        await api('/api/auth', { method: 'DELETE' });
+        currentUser = null;
+        books = [];
+        setCurrentBookUI(null);
         renderBooks();
-        await loadNotes(bookId);
+        renderNotes('', []);
+        appSection.classList.add('hidden');
+        signOutBtn.classList.add('hidden');
+        setStatus(authStatus, 'Ты вышел из аккаунта.');
+      }
+
+      async function refreshData(bookId = '') {
+        const qs = bookId ? `?bookId=${encodeURIComponent(bookId)}` : '';
+        const { response, payload } = await api(`/api/data${qs}`, { method: 'GET' });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'DATA_LOAD_FAILED');
+        currentUser = payload.user;
+        books = payload.books || [];
+        setCurrentBookUI(payload.currentBook || null);
+        renderBooks();
+        renderNotes(payload.currentBook?.title || '', payload.notes || []);
       }
 
       async function createBook(title) {
-        const cleanTitle = String(title || '').replace(/\s+/g, ' ').trim();
-        if (!cleanTitle) return;
-        const existing = books.find((b) => b.title.toLowerCase() === cleanTitle.toLowerCase());
-        if (existing) {
-          await setActiveBook(existing.id);
-          return existing;
-        }
-        const { data, error } = await supabase.from('books').insert({ user_id: session.user.id, title: cleanTitle }).select('*').single();
-        if (error) throw error;
-        books.push(data);
-        books.sort((a, b) => a.title.localeCompare(b.title, 'ru'));
-        await setActiveBook(data.id);
-        return data;
+        const { response, payload } = await api('/api/data', { method: 'POST', body: JSON.stringify({ action: 'book_upsert', title }) });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'BOOK_SAVE_FAILED');
+        await refreshData(payload.currentBook?.id || '');
+        return payload.currentBook;
+      }
+
+      async function selectBook(bookId) {
+        const { response, payload } = await api('/api/data', { method: 'POST', body: JSON.stringify({ action: 'book_select', bookId }) });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'BOOK_SELECT_FAILED');
+        await refreshData(bookId);
       }
 
       async function deleteBook(bookId) {
-        const { error } = await supabase.from('books').delete().eq('id', bookId);
-        if (error) throw error;
-        books = books.filter((b) => b.id !== bookId);
-        if (profile?.current_book_id === bookId) {
-          profile.current_book_id = null;
-          setCurrentBookUI(null);
-        }
-        renderBooks();
-        await loadNotes();
+        const { response, payload } = await api(`/api/data?action=book_delete&bookId=${encodeURIComponent(bookId)}`, { method: 'DELETE' });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'BOOK_DELETE_FAILED');
+        await refreshData();
+      }
+
+      async function saveNote(text) {
+        if (!currentBook?.id) throw new Error('Сначала выбери книгу');
+        const { response, payload } = await api('/api/data', { method: 'POST', body: JSON.stringify({ action: 'note_create', bookId: currentBook.id, text }) });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'NOTE_SAVE_FAILED');
+        setCurrentBookUI(payload.currentBook || currentBook);
+        renderNotes(payload.currentBook?.title || currentBook?.title || '', payload.notes || []);
+        setStatus(mainStatus, `📚 Сохранено в книгу: ${payload.currentBook?.title || currentBook?.title || ''}`, 'ok');
       }
 
       function buildMarkdown(book, notes) {
         const now = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
         const lines = [`# ${book.title}`, '', `Экспорт: ${now} (Europe/Moscow)`, `Количество заметок: ${notes.length}`, ''];
-        notes.forEach((note, index) => {
+        notes.slice().reverse().forEach((note, index) => {
           lines.push(`## ${index + 1} (${formatTs(note.created_at)})`);
           lines.push(note.text);
           lines.push('');
@@ -332,10 +296,11 @@
 
       async function exportBook(bookId) {
         const book = books.find((b) => b.id === bookId);
-        const { data, error } = await supabase.from('notes').select('text, created_at').eq('book_id', bookId).order('created_at', { ascending: true });
-        if (error) throw error;
-        if (!data?.length) throw new Error('В этой книге пока нет заметок для экспорта');
-        const blob = new Blob([buildMarkdown(book, data)], { type: 'text/markdown;charset=utf-8' });
+        const { response, payload } = await api(`/api/data?bookId=${encodeURIComponent(bookId)}`, { method: 'GET' });
+        if (!response.ok || !payload?.ok) throw new Error(payload?.error || 'EXPORT_LOAD_FAILED');
+        const notes = payload.notes || [];
+        if (!notes.length) throw new Error('В этой книге пока нет заметок для экспорта');
+        const blob = new Blob([buildMarkdown(book, notes)], { type: 'text/markdown;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -344,16 +309,6 @@
         a.click();
         a.remove();
         URL.revokeObjectURL(url);
-      }
-
-      async function saveNote(text) {
-        if (!currentBook?.id) throw new Error('Сначала выбери книгу');
-        const cleanText = String(text || '').trim();
-        if (!cleanText) throw new Error('Пустой текст нельзя сохранить');
-        const { error } = await supabase.from('notes').insert({ user_id: session.user.id, book_id: currentBook.id, text: cleanText });
-        if (error) throw error;
-        await loadNotes(currentBook.id);
-        setStatus(mainStatus, `📚 Сохранено в книгу: ${currentBook.title}`, 'ok');
       }
 
       async function stopCamera() {
@@ -427,72 +382,25 @@
         return start === end ? '' : ocrText.value.slice(start, end).trim();
       }
 
-      async function callOcr() {
-        if (!image) throw new Error('Сначала загрузи или сфотографируй страницу.');
-        const { data: authData } = await supabase.auth.getSession();
-        const token = authData?.session?.access_token;
-        if (!token) throw new Error('Сессия истекла. Войди снова.');
-        const response = await fetch('/api/ocr', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ imageDataUrl: toScanImageDataUrl() })
-        });
-        const payload = await response.json();
-        if (!response.ok || !payload.ok || typeof payload.text !== 'string') throw new Error(payload?.error || 'OCR failed');
+      async function runOcr() {
+        const { response, payload } = await api('/api/ocr', { method: 'POST', body: JSON.stringify({ imageDataUrl: toScanImageDataUrl() }) });
+        if (!response.ok || !payload?.ok || typeof payload.text !== 'string') throw new Error(payload?.error || 'OCR_FAILED');
         return normalizeText(payload.text);
       }
 
-      async function refreshAppData() {
-        await ensureProfile();
-        await fetchBooks();
-        if (currentBook?.id) await loadNotes(currentBook.id);
-        else renderNotes('', []);
-      }
-
-      async function applySession(nextSession) {
-        session = nextSession;
-        if (!session?.user) {
-          appSection.classList.add('hidden');
-          signOutBtn.classList.add('hidden');
-          setStatus(authStatus, 'Войди по email, чтобы открыть книги и заметки.');
-          return;
-        }
-        appSection.classList.remove('hidden');
-        signOutBtn.classList.remove('hidden');
-        setStatus(authStatus, `Вошёл как ${session.user.email}`, 'ok');
-        await refreshAppData();
-      }
-
       signInBtn.addEventListener('click', async () => {
-        const email = String(emailInput.value || '').trim();
-        if (!email) return;
         try {
-          const redirectTo = window.location.origin;
-          const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
-          if (error) throw error;
-          setStatus(authStatus, `Ссылка для входа отправлена на ${email}`, 'ok');
+          await signIn();
         } catch (error) {
           setStatus(authStatus, String(error.message || error), 'error');
         }
       });
 
-      signOutBtn.addEventListener('click', async () => {
-        await supabase.auth.signOut();
-        session = null;
-        profile = null;
-        books = [];
-        setCurrentBookUI(null);
-        renderBooks();
-        renderNotes('', []);
-        appSection.classList.add('hidden');
-        signOutBtn.classList.add('hidden');
-        setStatus(authStatus, 'Ты вышел из аккаунта.');
-      });
-
+      signOutBtn.addEventListener('click', signOut);
+      usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signInBtn.click(); });
+      passcodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signInBtn.click(); });
       newBookInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBookBtn.click(); });
+
       addBookBtn.addEventListener('click', async () => {
         try {
           const book = await createBook(newBookInput.value);
@@ -511,10 +419,10 @@
         if (!book) return;
         try {
           if (btn.dataset.action === 'select') {
-            await setActiveBook(bookId);
+            await selectBook(bookId);
             setStatus(mainStatus, `Активная книга: ${book.title}`, 'ok');
           } else if (btn.dataset.action === 'notes') {
-            await loadNotes(bookId);
+            await refreshData(bookId);
             setStatus(mainStatus, `Показаны заметки книги: ${book.title}`, 'ok');
           } else if (btn.dataset.action === 'export') {
             await exportBook(bookId);
@@ -545,9 +453,10 @@
 
       ocrBtn.addEventListener('click', async () => {
         try {
+          if (!image) throw new Error('Сначала загрузи или сфотографируй страницу.');
           ocrBtn.disabled = true;
           setStatus(mainStatus, 'Распознаю текст...');
-          ocrText.value = await callOcr();
+          ocrText.value = await runOcr();
           setStatus(mainStatus, 'Текст распознан. Его можно поправить и сохранить.', 'ok');
         } catch (error) {
           setStatus(mainStatus, String(error.message || error), 'error');
@@ -576,12 +485,7 @@
         }
       });
 
-      await loadConfig();
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      await applySession(initialSession);
-      supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-        await applySession(nextSession);
-      });
+      await getAuthState();
     </script>
   </body>
 </html>
