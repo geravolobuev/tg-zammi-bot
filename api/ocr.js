@@ -1,3 +1,5 @@
+import { requireSupabaseUser } from './lib/supabase.js';
+
 const OPENROUTER_API_BASE = 'https://openrouter.ai/api/v1';
 const DEFAULT_OCR_MODEL = 'qwen2.5-vl-72b-instruct:free';
 
@@ -71,6 +73,14 @@ async function runOpenRouterFullOcr(apiKey, imageDataUrl, preferredModel) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ ok: false, error: 'Method not allowed' });
+    return;
+  }
+
+  try {
+    await requireSupabaseUser(req);
+  } catch (error) {
+    const msg = String(error?.message || 'AUTH_REQUIRED');
+    res.status(401).json({ ok: false, error: msg });
     return;
   }
 

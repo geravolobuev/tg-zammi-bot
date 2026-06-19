@@ -1,19 +1,11 @@
 {
   "version": 2,
   "functions": {
-    "api/books.js": { "maxDuration": 60 },
-    "api/notes.js": { "maxDuration": 60 },
-    "api/export.js": { "maxDuration": 60 },
+    "api/config.js": { "maxDuration": 60 },
     "api/ocr.js": { "maxDuration": 60 }
   },
   "rewrites": [
-    {
-      "source": "/",
-      "destination": "/webapp/index.html"
-    },
-    {
-      "source": "/webapp",
-      "destination": "/webapp/index.html"
-    }
+    { "source": "/", "destination": "/webapp/index.html" },
+    { "source": "/webapp", "destination": "/webapp/index.html" }
   ]
 }

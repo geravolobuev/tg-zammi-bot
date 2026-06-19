@@ -22,7 +22,7 @@
         color: var(--ink);
         background: radial-gradient(circle at top, #fff9ef 0, var(--bg) 60%);
       }
-      .wrap { max-width: 1060px; margin: 0 auto; padding: 18px 14px 36px; }
+      .wrap { max-width: 1100px; margin: 0 auto; padding: 18px 14px 36px; }
       h1 { margin: 0 0 6px; font-size: 30px; }
       .sub { color: var(--muted); margin-bottom: 16px; }
       .grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; }
@@ -35,7 +35,7 @@
       }
       .card h2 { margin: 0 0 10px; font-size: 18px; }
       .row, .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
-      input[type="text"], textarea {
+      input[type="text"], input[type="email"], textarea {
         width: 100%;
         border: 1px solid var(--line);
         border-radius: 10px;
@@ -63,15 +63,10 @@
       button:disabled { opacity: 0.6; cursor: not-allowed; }
       .status { margin-top: 10px; font-size: 14px; color: var(--muted); white-space: pre-wrap; }
       .status.error { color: #b30000; }
+      .status.ok { color: #17714a; }
       .book-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
-      .book-item {
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: white;
-        padding: 10px;
-      }
+      .book-item { border: 1px solid var(--line); border-radius: 10px; background: white; padding: 10px; }
       .book-item.active { border-color: var(--accent); background: #fff7f0; }
-      .book-head { display: flex; justify-content: space-between; gap: 8px; align-items: start; }
       .book-title { font-weight: 600; }
       .book-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
       .preview {
@@ -91,61 +86,74 @@
       .note-item:first-child { border-top: none; padding-top: 0; }
       .note-time { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
       .hidden { display: none !important; }
-      @media (max-width: 900px) {
-        .grid { grid-template-columns: 1fr; }
-      }
+      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
     <div class="wrap">
       <h1>Book Highlighter</h1>
-      <div class="sub">Standalone web app: книги, OCR страницы, правка текста, сохранение и экспорт в Markdown.</div>
+      <div class="sub">Логин по magic link, книги и заметки в Supabase, OCR через OpenRouter.</div>
 
-      <div class="grid">
-        <aside class="card">
-          <h2>Книги</h2>
-          <div class="row">
-            <input id="newBookInput" type="text" placeholder="Название книги" />
-            <button id="addBookBtn" class="primary">Добавить</button>
-          </div>
-          <div id="currentBookLabel" class="status">Активная книга не выбрана</div>
-          <div id="booksList" class="book-list"></div>
-        </aside>
+      <section id="authCard" class="card">
+        <h2>Вход</h2>
+        <div class="row">
+          <input id="emailInput" type="email" placeholder="you@example.com" />
+          <button id="signInBtn" class="primary">Отправить magic link</button>
+          <button id="signOutBtn" class="hidden">Выйти</button>
+        </div>
+        <div id="authStatus" class="status">Войди по email, чтобы открыть книги и заметки.</div>
+      </section>
 
-        <main class="card">
-          <h2>OCR и сохранение</h2>
-          <div class="toolbar">
-            <button id="startCameraBtn">Включить камеру</button>
-            <button id="captureBtn" class="primary">Сфотографировать</button>
-            <label class="file-label" for="photoInput">Загрузить фото</label>
-            <input id="photoInput" class="hidden" type="file" accept="image/*" />
-            <button id="ocrBtn" class="good">Распознать текст</button>
-            <button id="saveSelectionBtn">Сохранить выделенное</button>
-            <button id="saveAllBtn">Сохранить весь текст</button>
-          </div>
+      <section id="appSection" class="hidden">
+        <div class="grid" style="margin-top: 14px;">
+          <aside class="card">
+            <h2>Книги</h2>
+            <div class="row">
+              <input id="newBookInput" type="text" placeholder="Название книги" />
+              <button id="addBookBtn" class="primary">Добавить</button>
+            </div>
+            <div id="currentBookLabel" class="status">Активная книга не выбрана</div>
+            <div id="booksList" class="book-list"></div>
+          </aside>
 
-          <div class="preview">
-            <video id="cameraVideo" playsinline autoplay muted class="hidden"></video>
-            <img id="previewImage" alt="preview" class="hidden" />
-            <div id="emptyPreview">Фото ещё не выбрано</div>
-          </div>
+          <main class="card">
+            <h2>OCR и сохранение</h2>
+            <div class="toolbar">
+              <button id="startCameraBtn">Включить камеру</button>
+              <button id="captureBtn" class="primary">Сфотографировать</button>
+              <label class="file-label" for="photoInput">Загрузить фото</label>
+              <input id="photoInput" class="hidden" type="file" accept="image/*" />
+              <button id="ocrBtn" class="good">Распознать текст</button>
+              <button id="saveSelectionBtn">Сохранить выделенное</button>
+              <button id="saveAllBtn">Сохранить весь текст</button>
+            </div>
+            <div class="preview">
+              <video id="cameraVideo" playsinline autoplay muted class="hidden"></video>
+              <img id="previewImage" alt="preview" class="hidden" />
+              <div id="emptyPreview">Фото ещё не выбрано</div>
+            </div>
+            <div id="imageMeta" class="status">Нет изображения</div>
+            <textarea id="ocrText" placeholder="После OCR текст появится здесь. Его можно исправить и затем сохранить."></textarea>
+            <div id="mainStatus" class="status"></div>
+          </main>
+        </div>
 
-          <div id="imageMeta" class="status">Нет изображения</div>
-          <textarea id="ocrText" placeholder="После OCR текст появится здесь. Его можно исправить и затем сохранить."></textarea>
-          <div id="mainStatus" class="status"></div>
-        </main>
-      </div>
-
-      <section class="card" style="margin-top: 14px;">
-        <h2>Последние 5 заметок активной книги</h2>
-        <div id="notesList" class="notes-list"></div>
+        <section class="card" style="margin-top: 14px;">
+          <h2>Последние 5 заметок активной книги</h2>
+          <div id="notesList" class="notes-list"></div>
+        </section>
       </section>
     </div>
 
-    <script>
-      const STORAGE_USER_KEY = 'book_highlighter_user_id';
-      const STORAGE_BOOK_KEY = 'book_highlighter_active_book_hint';
+    <script type="module">
+      import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
+      const authCard = document.getElementById('authCard');
+      const appSection = document.getElementById('appSection');
+      const emailInput = document.getElementById('emailInput');
+      const signInBtn = document.getElementById('signInBtn');
+      const signOutBtn = document.getElementById('signOutBtn');
+      const authStatus = document.getElementById('authStatus');
       const newBookInput = document.getElementById('newBookInput');
       const addBookBtn = document.getElementById('addBookBtn');
       const currentBookLabel = document.getElementById('currentBookLabel');
@@ -164,29 +172,17 @@
       const ocrText = document.getElementById('ocrText');
       const mainStatus = document.getElementById('mainStatus');
 
-      let cameraStream = null;
-      let image = null;
+      let supabase;
+      let session = null;
+      let profile = null;
       let books = [];
       let currentBook = null;
+      let cameraStream = null;
+      let image = null;
 
-      function getUserId() {
-        let id = localStorage.getItem(STORAGE_USER_KEY);
-        if (!id) {
-          id = (crypto.randomUUID ? crypto.randomUUID() : `user_${Date.now()}_${Math.random().toString(16).slice(2)}`);
-          localStorage.setItem(STORAGE_USER_KEY, id);
-        }
-        return id;
-      }
-
-      function setStatus(text, isError = false) {
-        mainStatus.textContent = text || '';
-        mainStatus.className = `status${isError ? ' error' : ''}`;
-      }
-
-      function apiFetch(url, options = {}) {
-        const headers = new Headers(options.headers || {});
-        headers.set('x-user-id', getUserId());
-        return fetch(url, { ...options, headers });
+      function setStatus(node, text, mode = '') {
+        node.textContent = text || '';
+        node.className = `status${mode ? ` ${mode}` : ''}`;
       }
 
       function escapeHtml(text) {
@@ -196,20 +192,46 @@
       function formatTs(ts) {
         const dt = new Date(Number(ts || 0));
         if (Number.isNaN(dt.getTime())) return '';
-        return dt.toLocaleString('ru-RU', {
-          timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+        return dt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+      }
+
+      async function loadConfig() {
+        const response = await fetch('/api/config');
+        const payload = await response.json();
+        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'CONFIG_LOAD_FAILED');
+        supabase = createClient(payload.supabaseUrl, payload.supabaseAnonKey, {
+          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
         });
       }
 
       function setCurrentBookUI(book) {
         currentBook = book || null;
-        if (currentBook?.title) {
-          currentBookLabel.textContent = `Активная книга: ${currentBook.title}`;
-          localStorage.setItem(STORAGE_BOOK_KEY, currentBook.title);
+        currentBookLabel.textContent = currentBook?.title ? `Активная книга: ${currentBook.title}` : 'Активная книга не выбрана';
+      }
+
+      async function ensureProfile() {
+        const user = session?.user;
+        if (!user) return;
+        const { data: existing, error: selectError } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
+        if (selectError) throw selectError;
+        if (!existing) {
+          const { error: insertError } = await supabase.from('profiles').insert({ id: user.id });
+          if (insertError) throw insertError;
+          const { data: created, error: createdError } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+          if (createdError) throw createdError;
+          profile = created;
         } else {
-          currentBookLabel.textContent = 'Активная книга не выбрана';
-          localStorage.removeItem(STORAGE_BOOK_KEY);
+          profile = existing;
         }
+      }
+
+      async function fetchBooks() {
+        const { data, error } = await supabase.from('books').select('*').order('title', { ascending: true });
+        if (error) throw error;
+        books = data || [];
+        const currentBookId = profile?.current_book_id || null;
+        setCurrentBookUI(books.find((b) => b.id === currentBookId) || null);
+        renderBooks();
       }
 
       function renderBooks() {
@@ -220,16 +242,14 @@
         }
         books.forEach((book) => {
           const item = document.createElement('div');
-          item.className = `book-item${currentBook?.slug === book.slug ? ' active' : ''}`;
+          item.className = `book-item${currentBook?.id === book.id ? ' active' : ''}`;
           item.innerHTML = `
-            <div class="book-head">
-              <div class="book-title">${currentBook?.slug === book.slug ? '✅ ' : ''}${escapeHtml(book.title)}</div>
-            </div>
+            <div class="book-title">${currentBook?.id === book.id ? '✅ ' : ''}${escapeHtml(book.title)}</div>
             <div class="book-actions">
-              <button data-action="select" data-title="${escapeHtml(book.title)}">Выбрать</button>
-              <button data-action="notes" data-title="${escapeHtml(book.title)}">Показать заметки</button>
-              <button data-action="export" data-title="${escapeHtml(book.title)}">Экспорт MD</button>
-              <button data-action="delete" data-title="${escapeHtml(book.title)}" class="danger">Удалить</button>
+              <button data-action="select" data-id="${book.id}">Выбрать</button>
+              <button data-action="notes" data-id="${book.id}">Показать заметки</button>
+              <button data-action="export" data-id="${book.id}">Экспорт MD</button>
+              <button data-action="delete" data-id="${book.id}" class="danger">Удалить</button>
             </div>
           `;
           booksList.appendChild(item);
@@ -241,102 +261,99 @@
           notesList.innerHTML = `<div class="status">Для книги "${escapeHtml(bookTitle || currentBook?.title || '')}" пока нет заметок.</div>`;
           return;
         }
-        notesList.innerHTML = notes.slice().reverse().map((note, index) => `
+        notesList.innerHTML = notes.map((note, idx) => `
           <div class="note-item">
-            <div class="note-time">${notes.length - index}. ${escapeHtml(formatTs(note.ts))}</div>
+            <div class="note-time">${idx + 1}. ${escapeHtml(formatTs(note.created_at))}</div>
             <div>${escapeHtml(note.text).replace(/\n/g, '<br>')}</div>
           </div>
         `).join('');
       }
 
-      async function refreshBooks() {
-        const response = await apiFetch('/api/books');
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'BOOKS_LOAD_FAILED');
-        books = payload.books || [];
-        setCurrentBookUI(payload.currentBook || null);
+      async function loadNotes(bookId = currentBook?.id) {
+        if (!bookId) { renderNotes('', []); return; }
+        const book = books.find((b) => b.id === bookId);
+        const { data, error } = await supabase
+          .from('notes')
+          .select('id, text, created_at')
+          .eq('book_id', bookId)
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (error) throw error;
+        renderNotes(book?.title, data || []);
+      }
+
+      async function setActiveBook(bookId) {
+        const { error } = await supabase.from('profiles').update({ current_book_id: bookId }).eq('id', session.user.id);
+        if (error) throw error;
+        profile.current_book_id = bookId;
+        setCurrentBookUI(books.find((b) => b.id === bookId) || null);
         renderBooks();
+        await loadNotes(bookId);
       }
 
-      async function loadNotes(title = '') {
-        const qs = new URLSearchParams();
-        if (title) qs.set('title', title);
-        const response = await apiFetch(`/api/notes${qs.toString() ? `?${qs.toString()}` : ''}`);
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) {
-          if (payload?.error === 'BOOK_NOT_SELECTED') {
-            renderNotes('', []);
-            return;
-          }
-          throw new Error(payload?.error || 'NOTES_LOAD_FAILED');
+      async function createBook(title) {
+        const cleanTitle = String(title || '').replace(/\s+/g, ' ').trim();
+        if (!cleanTitle) return;
+        const existing = books.find((b) => b.title.toLowerCase() === cleanTitle.toLowerCase());
+        if (existing) {
+          await setActiveBook(existing.id);
+          return existing;
         }
-        renderNotes(payload.book?.title, payload.notes || []);
+        const { data, error } = await supabase.from('books').insert({ user_id: session.user.id, title: cleanTitle }).select('*').single();
+        if (error) throw error;
+        books.push(data);
+        books.sort((a, b) => a.title.localeCompare(b.title, 'ru'));
+        await setActiveBook(data.id);
+        return data;
       }
 
-      async function createOrSelectBook(title) {
-        const response = await apiFetch('/api/books', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title })
+      async function deleteBook(bookId) {
+        const { error } = await supabase.from('books').delete().eq('id', bookId);
+        if (error) throw error;
+        books = books.filter((b) => b.id !== bookId);
+        if (profile?.current_book_id === bookId) {
+          profile.current_book_id = null;
+          setCurrentBookUI(null);
+        }
+        renderBooks();
+        await loadNotes();
+      }
+
+      function buildMarkdown(book, notes) {
+        const now = new Date().toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+        const lines = [`# ${book.title}`, '', `Экспорт: ${now} (Europe/Moscow)`, `Количество заметок: ${notes.length}`, ''];
+        notes.forEach((note, index) => {
+          lines.push(`## ${index + 1} (${formatTs(note.created_at)})`);
+          lines.push(note.text);
+          lines.push('');
         });
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'BOOK_SAVE_FAILED');
-        books = payload.books || [];
-        setCurrentBookUI(payload.currentBook || null);
-        renderBooks();
-        await loadNotes(payload.currentBook?.title || '');
+        return `${lines.join('\n').trim()}\n`;
       }
 
-      async function deleteBookByTitle(title) {
-        const response = await apiFetch(`/api/books?title=${encodeURIComponent(title)}`, { method: 'DELETE' });
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) throw new Error(payload?.error || 'BOOK_DELETE_FAILED');
-        books = payload.books || [];
-        setCurrentBookUI(payload.currentBook || null);
-        renderBooks();
-        await loadNotes(payload.currentBook?.title || '');
-      }
-
-      async function exportBook(title = '') {
-        const qs = new URLSearchParams();
-        if (title) qs.set('title', title);
-        const response = await apiFetch(`/api/export${qs.toString() ? `?${qs.toString()}` : ''}`);
-        if (response.headers.get('content-type')?.includes('text/markdown')) {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const disposition = response.headers.get('content-disposition') || '';
-          const match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
-          const fileName = match ? decodeURIComponent(match[1]) : 'notes.md';
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-          return;
-        }
-        const payload = await response.json();
-        if (payload?.error === 'BOOK_NOT_SELECTED') throw new Error('Сначала выбери книгу');
-        if (payload?.error === 'NO_NOTES') throw new Error('В этой книге пока нет заметок для экспорта');
-        throw new Error(payload?.error || 'EXPORT_FAILED');
+      async function exportBook(bookId) {
+        const book = books.find((b) => b.id === bookId);
+        const { data, error } = await supabase.from('notes').select('text, created_at').eq('book_id', bookId).order('created_at', { ascending: true });
+        if (error) throw error;
+        if (!data?.length) throw new Error('В этой книге пока нет заметок для экспорта');
+        const blob = new Blob([buildMarkdown(book, data)], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${book.title.replace(/[\\/:*?"<>|]/g, ' ').trim() || 'book'}.md`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
       }
 
       async function saveNote(text) {
-        const response = await apiFetch('/api/notes', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text })
-        });
-        const payload = await response.json();
-        if (!response.ok || !payload.ok) {
-          if (payload?.error === 'BOOK_NOT_SELECTED') throw new Error('Сначала выбери книгу');
-          throw new Error(payload?.error || 'SAVE_FAILED');
-        }
-        setCurrentBookUI(payload.book || currentBook);
-        await refreshBooks();
-        renderNotes(payload.book?.title, payload.notes || []);
-        setStatus(`📚 Сохранено в книгу: ${payload.book?.title || ''}`);
+        if (!currentBook?.id) throw new Error('Сначала выбери книгу');
+        const cleanText = String(text || '').trim();
+        if (!cleanText) throw new Error('Пустой текст нельзя сохранить');
+        const { error } = await supabase.from('notes').insert({ user_id: session.user.id, book_id: currentBook.id, text: cleanText });
+        if (error) throw error;
+        await loadNotes(currentBook.id);
+        setStatus(mainStatus, `📚 Сохранено в книгу: ${currentBook.title}`, 'ok');
       }
 
       async function stopCamera() {
@@ -349,17 +366,14 @@
       async function startCamera() {
         try {
           await stopCamera();
-          cameraStream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 } }
-          });
+          cameraStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 } } });
           cameraVideo.srcObject = cameraStream;
           cameraVideo.classList.remove('hidden');
           previewImage.classList.add('hidden');
           emptyPreview.classList.add('hidden');
-          setStatus('Камера включена. Можно сфотографировать страницу.');
+          setStatus(mainStatus, 'Камера включена. Можно сфотографировать страницу.');
         } catch {
-          setStatus('Не удалось открыть камеру. Используй загрузку файла.', true);
+          setStatus(mainStatus, 'Не удалось открыть камеру. Используй загрузку файла.', 'error');
         }
       }
 
@@ -378,15 +392,14 @@
 
       function captureFrame() {
         if (!cameraStream || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
-          setStatus('Камера ещё не готова.', true);
+          setStatus(mainStatus, 'Камера ещё не готова.', 'error');
           return;
         }
         const canvas = document.createElement('canvas');
         canvas.width = cameraVideo.videoWidth;
         canvas.height = cameraVideo.videoHeight;
         canvas.getContext('2d').drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/png');
-        setImageFromDataUrl(dataUrl, canvas.width, canvas.height);
+        setImageFromDataUrl(canvas.toDataURL('image/png'), canvas.width, canvas.height);
       }
 
       function toScanImageDataUrl() {
@@ -414,50 +427,110 @@
         return start === end ? '' : ocrText.value.slice(start, end).trim();
       }
 
-      addBookBtn.addEventListener('click', async () => {
-        const title = newBookInput.value.replace(/\s+/g, ' ').trim();
-        if (!title) return;
+      async function callOcr() {
+        if (!image) throw new Error('Сначала загрузи или сфотографируй страницу.');
+        const { data: authData } = await supabase.auth.getSession();
+        const token = authData?.session?.access_token;
+        if (!token) throw new Error('Сессия истекла. Войди снова.');
+        const response = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ imageDataUrl: toScanImageDataUrl() })
+        });
+        const payload = await response.json();
+        if (!response.ok || !payload.ok || typeof payload.text !== 'string') throw new Error(payload?.error || 'OCR failed');
+        return normalizeText(payload.text);
+      }
+
+      async function refreshAppData() {
+        await ensureProfile();
+        await fetchBooks();
+        if (currentBook?.id) await loadNotes(currentBook.id);
+        else renderNotes('', []);
+      }
+
+      async function applySession(nextSession) {
+        session = nextSession;
+        if (!session?.user) {
+          appSection.classList.add('hidden');
+          signOutBtn.classList.add('hidden');
+          setStatus(authStatus, 'Войди по email, чтобы открыть книги и заметки.');
+          return;
+        }
+        appSection.classList.remove('hidden');
+        signOutBtn.classList.remove('hidden');
+        setStatus(authStatus, `Вошёл как ${session.user.email}`, 'ok');
+        await refreshAppData();
+      }
+
+      signInBtn.addEventListener('click', async () => {
+        const email = String(emailInput.value || '').trim();
+        if (!email) return;
         try {
-          await createOrSelectBook(title);
-          newBookInput.value = '';
-          setStatus(`Активная книга: ${title}`);
+          const redirectTo = window.location.origin;
+          const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: redirectTo } });
+          if (error) throw error;
+          setStatus(authStatus, `Ссылка для входа отправлена на ${email}`, 'ok');
         } catch (error) {
-          setStatus(String(error.message || error), true);
+          setStatus(authStatus, String(error.message || error), 'error');
         }
       });
 
-      newBookInput.addEventListener('keydown', async (e) => {
-        if (e.key === 'Enter') addBookBtn.click();
+      signOutBtn.addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        session = null;
+        profile = null;
+        books = [];
+        setCurrentBookUI(null);
+        renderBooks();
+        renderNotes('', []);
+        appSection.classList.add('hidden');
+        signOutBtn.classList.add('hidden');
+        setStatus(authStatus, 'Ты вышел из аккаунта.');
+      });
+
+      newBookInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBookBtn.click(); });
+      addBookBtn.addEventListener('click', async () => {
+        try {
+          const book = await createBook(newBookInput.value);
+          newBookInput.value = '';
+          setStatus(mainStatus, `Активная книга: ${book.title}`, 'ok');
+        } catch (error) {
+          setStatus(mainStatus, String(error.message || error), 'error');
+        }
       });
 
       booksList.addEventListener('click', async (e) => {
         const btn = e.target.closest('button[data-action]');
         if (!btn) return;
-        const title = btn.dataset.title || '';
-        const action = btn.dataset.action;
+        const bookId = btn.dataset.id;
+        const book = books.find((b) => b.id === bookId);
+        if (!book) return;
         try {
-          if (action === 'select') {
-            await createOrSelectBook(title);
-            setStatus(`Активная книга: ${title}`);
-          } else if (action === 'notes') {
-            await loadNotes(title);
-            setStatus(`Показаны последние заметки книги: ${title}`);
-          } else if (action === 'export') {
-            await exportBook(title);
-            setStatus(`Экспорт готов: ${title}`);
-          } else if (action === 'delete') {
-            if (!confirm(`Удалить книгу "${title}" и все её заметки?`)) return;
-            await deleteBookByTitle(title);
-            setStatus(`Книга удалена: ${title}`);
+          if (btn.dataset.action === 'select') {
+            await setActiveBook(bookId);
+            setStatus(mainStatus, `Активная книга: ${book.title}`, 'ok');
+          } else if (btn.dataset.action === 'notes') {
+            await loadNotes(bookId);
+            setStatus(mainStatus, `Показаны заметки книги: ${book.title}`, 'ok');
+          } else if (btn.dataset.action === 'export') {
+            await exportBook(bookId);
+            setStatus(mainStatus, `Экспорт готов: ${book.title}`, 'ok');
+          } else if (btn.dataset.action === 'delete') {
+            if (!confirm(`Удалить книгу "${book.title}" и все её заметки?`)) return;
+            await deleteBook(bookId);
+            setStatus(mainStatus, `Книга удалена: ${book.title}`, 'ok');
           }
         } catch (error) {
-          setStatus(String(error.message || error), true);
+          setStatus(mainStatus, String(error.message || error), 'error');
         }
       });
 
       startCameraBtn.addEventListener('click', startCamera);
       captureBtn.addEventListener('click', captureFrame);
-
       photoInput.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -467,73 +540,48 @@
         canvas.height = bitmap.height;
         canvas.getContext('2d').drawImage(bitmap, 0, 0);
         setImageFromDataUrl(canvas.toDataURL('image/png'), bitmap.width, bitmap.height);
-        setStatus('Фото загружено. Теперь можно распознать текст.');
+        setStatus(mainStatus, 'Фото загружено. Теперь можно распознать текст.');
       });
 
       ocrBtn.addEventListener('click', async () => {
-        if (!image) {
-          setStatus('Сначала загрузи или сфотографируй страницу.', true);
-          return;
-        }
-        ocrBtn.disabled = true;
-        setStatus('Распознаю текст...');
         try {
-          const response = await apiFetch('/api/ocr', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageDataUrl: toScanImageDataUrl() })
-          });
-          const payload = await response.json();
-          if (!response.ok || !payload.ok || typeof payload.text !== 'string') throw new Error(payload?.error || 'OCR failed');
-          ocrText.value = normalizeText(payload.text);
-          setStatus('Текст распознан. Его можно поправить и сохранить.');
+          ocrBtn.disabled = true;
+          setStatus(mainStatus, 'Распознаю текст...');
+          ocrText.value = await callOcr();
+          setStatus(mainStatus, 'Текст распознан. Его можно поправить и сохранить.', 'ok');
         } catch (error) {
-          const message = String(error.message || error);
-          if (message.includes('OPENROUTER_AUTH_ERROR')) setStatus('Ошибка ключа OpenRouter.', true);
-          else if (message.includes('OPENROUTER_QUOTA_ERROR')) setStatus('Закончилась бесплатная квота OpenRouter.', true);
-          else setStatus(`Ошибка OCR: ${message}`, true);
+          setStatus(mainStatus, String(error.message || error), 'error');
         } finally {
           ocrBtn.disabled = false;
         }
       });
 
       saveSelectionBtn.addEventListener('click', async () => {
-        const selected = getSelectedText();
-        if (!selected) {
-          setStatus('Сначала выдели нужный фрагмент в тексте.', true);
-          return;
-        }
         try {
+          const selected = getSelectedText();
+          if (!selected) throw new Error('Сначала выдели нужный фрагмент в тексте.');
           await saveNote(selected);
         } catch (error) {
-          setStatus(String(error.message || error), true);
+          setStatus(mainStatus, String(error.message || error), 'error');
         }
       });
 
       saveAllBtn.addEventListener('click', async () => {
-        const text = normalizeText(ocrText.value);
-        if (!text) {
-          setStatus('Текстовое поле пустое.', true);
-          return;
-        }
         try {
+          const text = normalizeText(ocrText.value);
+          if (!text) throw new Error('Текстовое поле пустое.');
           await saveNote(text);
         } catch (error) {
-          setStatus(String(error.message || error), true);
+          setStatus(mainStatus, String(error.message || error), 'error');
         }
       });
 
-      (async function init() {
-        try {
-          await refreshBooks();
-          if (currentBook?.title) await loadNotes(currentBook.title);
-          else renderNotes('', []);
-          const hint = localStorage.getItem(STORAGE_BOOK_KEY);
-          if (!currentBook?.title && hint) setStatus(`Последняя выбранная книга в этом браузере: ${hint}`);
-        } catch (error) {
-          setStatus(`Ошибка инициализации: ${String(error.message || error)}`, true);
-        }
-      })();
+      await loadConfig();
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      await applySession(initialSession);
+      supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+        await applySession(nextSession);
+      });
     </script>
   </body>
 </html>
