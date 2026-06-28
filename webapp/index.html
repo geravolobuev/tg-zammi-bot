@@ -22,9 +22,9 @@
       .sub { color: var(--muted); margin-bottom: 16px; }
       .grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; }
       .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 6px 24px rgba(60, 40, 10, 0.05); }
-      .card h2 { margin: 0 0 10px; font-size: 18px; }
-      .row, .toolbar, .editor-actions, .auth-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      .auth-head { justify-content: space-between; }
+      .card h2 { margin: 0; font-size: 18px; }
+      .row, .toolbar, .editor-actions, .auth-head, .section-head, .modal-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .auth-head, .section-head { justify-content: space-between; }
       input[type="text"], input[type="password"], textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: white; color: var(--ink); }
       textarea { min-height: 260px; resize: vertical; font: 15px/1.5 Georgia, serif; }
       button, .file-label { border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 10px; padding: 9px 12px; cursor: pointer; font-size: 14px; }
@@ -51,10 +51,15 @@
       .note-item { border-top: 1px solid var(--line); padding-top: 10px; }
       .note-item:first-child { border-top: none; padding-top: 0; }
       .note-time { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-      details.notes-toggle > summary { cursor: pointer; font-weight: 600; list-style: none; }
-      details.notes-toggle > summary::-webkit-details-marker { display: none; }
-      details.notes-toggle > summary::before { content: '▸ '; }
-      details.notes-toggle[open] > summary::before { content: '▾ '; }
+      details.notes-toggle > summary, details.books-toggle > summary { cursor: pointer; font-weight: 600; list-style: none; }
+      details.notes-toggle > summary::-webkit-details-marker, details.books-toggle > summary::-webkit-details-marker { display: none; }
+      details.notes-toggle > summary::before, details.books-toggle > summary::before { content: '▸ '; }
+      details.notes-toggle[open] > summary::before, details.books-toggle[open] > summary::before { content: '▾ '; }
+      dialog { border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(92vw, 420px); background: var(--panel); color: var(--ink); }
+      dialog::backdrop { background: rgba(45, 36, 24, 0.35); }
+      .modal-body { padding: 16px; }
+      .modal-body h3 { margin: 0 0 12px; font-size: 18px; }
+      .modal-actions { justify-content: flex-end; margin-top: 12px; }
       .hidden { display: none !important; }
       @media (max-width: 900px) {
         .grid { grid-template-columns: 1fr; }
@@ -73,10 +78,10 @@
 
       <section id="authCard" class="card">
         <div class="auth-head">
-          <h2 style="margin:0;">Вход</h2>
+          <h2>Вход</h2>
           <button id="signOutBtn" class="hidden">Выйти</button>
         </div>
-        <div id="authForm" class="row">
+        <div id="authForm" class="row" style="margin-top:10px;">
           <input id="usernameInput" type="text" placeholder="username" autocomplete="username" />
           <input id="passcodeInput" type="password" placeholder="passcode" autocomplete="current-password" />
           <button id="signInBtn" class="primary">Войти / создать</button>
@@ -87,18 +92,20 @@
       <section id="appSection" class="hidden">
         <div class="grid" style="margin-top: 14px;">
           <aside class="card">
-            <h2>Книги</h2>
-            <div class="row">
-              <input id="newBookInput" type="text" placeholder="Название книги" />
-              <button id="addBookBtn" class="primary">Добавить</button>
+            <div class="section-head">
+              <h2>Книги</h2>
+              <button id="openAddBookBtn" class="primary">Добавить книгу</button>
             </div>
             <div id="currentBookLabel" class="status">Активная книга не выбрана</div>
-            <div id="booksList" class="book-list"></div>
+            <details class="books-toggle" style="margin-top:12px;">
+              <summary>Показать книги</summary>
+              <div id="booksList" class="book-list"></div>
+            </details>
           </aside>
 
           <main class="card">
             <h2>OCR и сохранение</h2>
-            <div id="ocrEditorBlock" class="ocr-layout">
+            <div id="ocrEditorBlock" class="ocr-layout" style="margin-top:10px;">
               <div class="preview-card">
                 <label id="photoLabel" class="file-label" for="photoInput">Загрузить фото</label>
                 <input id="photoInput" class="hidden" type="file" accept="image/*" capture="environment" />
@@ -131,6 +138,17 @@
       </section>
     </div>
 
+    <dialog id="addBookDialog">
+      <div class="modal-body">
+        <h3>Новая книга</h3>
+        <input id="newBookInput" type="text" placeholder="Название книги" />
+        <div class="modal-actions">
+          <button id="closeAddBookBtn">Отмена</button>
+          <button id="addBookBtn" class="primary">Сохранить</button>
+        </div>
+      </div>
+    </dialog>
+
     <script type="module">
       const authForm = document.getElementById('authForm');
       const appSection = document.getElementById('appSection');
@@ -140,7 +158,10 @@
       const signOutBtn = document.getElementById('signOutBtn');
       const authStatus = document.getElementById('authStatus');
       const newBookInput = document.getElementById('newBookInput');
+      const openAddBookBtn = document.getElementById('openAddBookBtn');
+      const closeAddBookBtn = document.getElementById('closeAddBookBtn');
       const addBookBtn = document.getElementById('addBookBtn');
+      const addBookDialog = document.getElementById('addBookDialog');
       const currentBookLabel = document.getElementById('currentBookLabel');
       const booksList = document.getElementById('booksList');
       const notesList = document.getElementById('notesList');
@@ -177,6 +198,12 @@
         return dt.toLocaleString('ru-RU', { timeZone: 'Europe/Moscow', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
       }
 
+      function previewText(text, max = 200) {
+        const normalized = String(text || '').replace(/\s+/g, ' ').trim();
+        if (normalized.length <= max) return normalized;
+        return `${normalized.slice(0, max).trimEnd()}...`;
+      }
+
       function setCurrentBookUI(book) {
         currentBook = book || null;
         currentBookLabel.textContent = currentBook?.title ? `Активная книга: ${currentBook.title}` : 'Активная книга не выбрана';
@@ -185,6 +212,24 @@
       function setAuthenticatedUi(isAuthenticated) {
         authForm.classList.toggle('hidden', isAuthenticated);
         signOutBtn.classList.toggle('hidden', !isAuthenticated);
+      }
+
+      function openAddBookDialog() {
+        newBookInput.value = '';
+        if (typeof addBookDialog.showModal === 'function') {
+          addBookDialog.showModal();
+        } else {
+          const title = window.prompt('Название книги');
+          if (title) {
+            newBookInput.value = title;
+            addBookBtn.click();
+          }
+        }
+        requestAnimationFrame(() => newBookInput.focus());
+      }
+
+      function closeBookDialog() {
+        if (addBookDialog.open) addBookDialog.close();
       }
 
       function renderBooks() {
@@ -217,7 +262,7 @@
         notesList.innerHTML = notes.map((note, idx) => `
           <div class="note-item">
             <div class="note-time">${idx + 1}. ${escapeHtml(formatTs(note.created_at))}</div>
-            <div>${escapeHtml(note.text).replace(/\n/g, '<br>')}</div>
+            <div>${escapeHtml(previewText(note.text))}</div>
           </div>
         `).join('');
       }
@@ -403,10 +448,20 @@
       usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signInBtn.click(); });
       passcodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') signInBtn.click(); });
       newBookInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addBookBtn.click(); });
+      openAddBookBtn.addEventListener('click', openAddBookDialog);
+      closeAddBookBtn.addEventListener('click', closeBookDialog);
+      addBookDialog.addEventListener('click', (e) => {
+        const rect = addBookDialog.getBoundingClientRect();
+        const clickedOutside = e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom;
+        if (clickedOutside) closeBookDialog();
+      });
 
       addBookBtn.addEventListener('click', async () => {
         try {
-          const book = await createBook(newBookInput.value);
+          const title = String(newBookInput.value || '').trim();
+          if (!title) throw new Error('Введи название книги.');
+          const book = await createBook(title);
+          closeBookDialog();
           newBookInput.value = '';
           setStatus(mainStatus, `Активная книга: ${book.title}`, 'ok');
         } catch (error) {
