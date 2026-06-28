@@ -23,14 +23,15 @@
       .grid { display: grid; grid-template-columns: 320px minmax(0, 1fr); gap: 14px; }
       .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; box-shadow: 0 6px 24px rgba(60, 40, 10, 0.05); }
       .card h2 { margin: 0 0 10px; font-size: 18px; }
-      .row, .toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+      .row, .toolbar, .editor-actions, .auth-head { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .auth-head { justify-content: space-between; }
       input[type="text"], input[type="password"], textarea { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: white; color: var(--ink); }
       textarea { min-height: 260px; resize: vertical; font: 15px/1.5 Georgia, serif; }
       button, .file-label { border: 1px solid var(--line); background: white; color: var(--ink); border-radius: 10px; padding: 9px 12px; cursor: pointer; font-size: 14px; }
       button.primary { background: var(--accent); color: white; border-color: #b85b22; }
       button.good { background: var(--accent-2); color: white; border-color: #17714a; }
       button.danger { background: white; color: var(--danger); border-color: #d5a5a5; }
-      button:disabled { opacity: 0.6; cursor: not-allowed; }
+      button:disabled, .file-label.disabled { opacity: 0.6; cursor: not-allowed; }
       .status { margin-top: 10px; font-size: 14px; color: var(--muted); white-space: pre-wrap; }
       .status.error { color: #b30000; }
       .status.ok { color: #17714a; }
@@ -39,28 +40,46 @@
       .book-item.active { border-color: var(--accent); background: #fff7f0; }
       .book-title { font-weight: 600; }
       .book-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-      .preview { margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px; min-height: 140px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-      .preview img, .preview video { width: 100%; display: block; }
+      .ocr-layout { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; align-items: start; }
+      .preview-card { display: flex; flex-direction: column; gap: 8px; }
+      .preview { border: 1px dashed var(--line); border-radius: 12px; min-height: 140px; max-height: 180px; background: white; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+      .preview.has-image { min-height: 96px; max-height: 140px; }
+      .preview img { width: 100%; height: 100%; object-fit: contain; display: block; }
+      .editor-panel { display: flex; flex-direction: column; gap: 10px; }
+      .editor-actions { justify-content: flex-end; }
       .notes-list { display: flex; flex-direction: column; gap: 10px; }
       .note-item { border-top: 1px solid var(--line); padding-top: 10px; }
       .note-item:first-child { border-top: none; padding-top: 0; }
       .note-time { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+      details.notes-toggle > summary { cursor: pointer; font-weight: 600; list-style: none; }
+      details.notes-toggle > summary::-webkit-details-marker { display: none; }
+      details.notes-toggle > summary::before { content: '▸ '; }
+      details.notes-toggle[open] > summary::before { content: '▾ '; }
       .hidden { display: none !important; }
-      @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+      @media (max-width: 900px) {
+        .grid { grid-template-columns: 1fr; }
+        .ocr-layout { grid-template-columns: 1fr; }
+        .preview-card { order: 2; }
+        .editor-panel { order: 1; }
+        .editor-actions { justify-content: stretch; }
+        .editor-actions button { flex: 1 1 100%; }
+      }
     </style>
   </head>
   <body>
     <div class="wrap">
       <h1>Book Highlighter</h1>
-      <div class="sub">Простой вход по username + passcode. Без email, без SMTP, без лишних сервисов.</div>
+      <div class="sub">Загрузи фото страницы, распознай текст, поправь и сохрани в выбранную книгу.</div>
 
       <section id="authCard" class="card">
-        <h2>Вход</h2>
-        <div class="row">
-          <input id="usernameInput" type="text" placeholder="username" />
-          <input id="passcodeInput" type="password" placeholder="passcode" />
-          <button id="signInBtn" class="primary">Войти / создать</button>
+        <div class="auth-head">
+          <h2 style="margin:0;">Вход</h2>
           <button id="signOutBtn" class="hidden">Выйти</button>
+        </div>
+        <div id="authForm" class="row">
+          <input id="usernameInput" type="text" placeholder="username" autocomplete="username" />
+          <input id="passcodeInput" type="password" placeholder="passcode" autocomplete="current-password" />
+          <button id="signInBtn" class="primary">Войти / создать</button>
         </div>
         <div id="authStatus" class="status">Введи username и passcode. Если пользователя нет — он будет создан.</div>
       </section>
@@ -79,35 +98,41 @@
 
           <main class="card">
             <h2>OCR и сохранение</h2>
-            <div class="toolbar">
-              <button id="startCameraBtn">Включить камеру</button>
-              <button id="captureBtn" class="primary">Сфотографировать</button>
-              <label class="file-label" for="photoInput">Загрузить фото</label>
-              <input id="photoInput" class="hidden" type="file" accept="image/*" />
-              <button id="ocrBtn" class="good">Распознать текст</button>
-              <button id="saveSelectionBtn">Сохранить выделенное</button>
-              <button id="saveAllBtn">Сохранить весь текст</button>
+            <div id="ocrEditorBlock" class="ocr-layout">
+              <div class="preview-card">
+                <label id="photoLabel" class="file-label" for="photoInput">Загрузить фото</label>
+                <input id="photoInput" class="hidden" type="file" accept="image/*" capture="environment" />
+                <button id="ocrBtn" class="good">Распознать текст</button>
+                <div id="previewBox" class="preview">
+                  <img id="previewImage" alt="preview" class="hidden" />
+                  <div id="emptyPreview">Фото ещё не выбрано</div>
+                </div>
+                <div id="imageMeta" class="status">Нет изображения</div>
+              </div>
+
+              <div class="editor-panel">
+                <textarea id="ocrText" placeholder="После OCR текст появится здесь. Его можно исправить и затем сохранить."></textarea>
+                <div class="editor-actions">
+                  <button id="saveSelectionBtn">Сохранить выделенное</button>
+                  <button id="saveAllBtn" class="primary">Сохранить весь текст</button>
+                </div>
+                <div id="mainStatus" class="status"></div>
+              </div>
             </div>
-            <div class="preview">
-              <video id="cameraVideo" playsinline autoplay muted class="hidden"></video>
-              <img id="previewImage" alt="preview" class="hidden" />
-              <div id="emptyPreview">Фото ещё не выбрано</div>
-            </div>
-            <div id="imageMeta" class="status">Нет изображения</div>
-            <textarea id="ocrText" placeholder="После OCR текст появится здесь. Его можно исправить и затем сохранить."></textarea>
-            <div id="mainStatus" class="status"></div>
           </main>
         </div>
 
         <section class="card" style="margin-top: 14px;">
-          <h2>Последние 5 заметок активной книги</h2>
-          <div id="notesList" class="notes-list"></div>
+          <details class="notes-toggle">
+            <summary>Последние 5 заметок активной книги</summary>
+            <div id="notesList" class="notes-list" style="margin-top:12px;"></div>
+          </details>
         </section>
       </section>
     </div>
 
     <script type="module">
-      const authCard = document.getElementById('authCard');
+      const authForm = document.getElementById('authForm');
       const appSection = document.getElementById('appSection');
       const usernameInput = document.getElementById('usernameInput');
       const passcodeInput = document.getElementById('passcodeInput');
@@ -119,23 +144,22 @@
       const currentBookLabel = document.getElementById('currentBookLabel');
       const booksList = document.getElementById('booksList');
       const notesList = document.getElementById('notesList');
-      const cameraVideo = document.getElementById('cameraVideo');
+      const previewBox = document.getElementById('previewBox');
       const previewImage = document.getElementById('previewImage');
       const emptyPreview = document.getElementById('emptyPreview');
-      const startCameraBtn = document.getElementById('startCameraBtn');
-      const captureBtn = document.getElementById('captureBtn');
       const photoInput = document.getElementById('photoInput');
+      const photoLabel = document.getElementById('photoLabel');
       const ocrBtn = document.getElementById('ocrBtn');
       const saveSelectionBtn = document.getElementById('saveSelectionBtn');
       const saveAllBtn = document.getElementById('saveAllBtn');
       const imageMeta = document.getElementById('imageMeta');
       const ocrText = document.getElementById('ocrText');
       const mainStatus = document.getElementById('mainStatus');
+      const ocrEditorBlock = document.getElementById('ocrEditorBlock');
 
       let currentUser = null;
       let books = [];
       let currentBook = null;
-      let cameraStream = null;
       let image = null;
 
       function setStatus(node, text, mode = '') {
@@ -156,6 +180,11 @@
       function setCurrentBookUI(book) {
         currentBook = book || null;
         currentBookLabel.textContent = currentBook?.title ? `Активная книга: ${currentBook.title}` : 'Активная книга не выбрана';
+      }
+
+      function setAuthenticatedUi(isAuthenticated) {
+        authForm.classList.toggle('hidden', isAuthenticated);
+        signOutBtn.classList.toggle('hidden', !isAuthenticated);
       }
 
       function renderBooks() {
@@ -211,12 +240,12 @@
         currentUser = payload.user || null;
         if (!currentUser) {
           appSection.classList.add('hidden');
-          signOutBtn.classList.add('hidden');
+          setAuthenticatedUi(false);
           setStatus(authStatus, 'Введи username и passcode. Если пользователя нет — он будет создан.');
           return;
         }
         appSection.classList.remove('hidden');
-        signOutBtn.classList.remove('hidden');
+        setAuthenticatedUi(true);
         setStatus(authStatus, `Вошёл как ${currentUser.username}`, 'ok');
         await refreshData();
       }
@@ -236,11 +265,17 @@
         await api('/api/auth', { method: 'DELETE' });
         currentUser = null;
         books = [];
+        image = null;
+        previewImage.src = '';
+        previewImage.classList.add('hidden');
+        emptyPreview.classList.remove('hidden');
+        previewBox.classList.remove('has-image');
+        ocrText.value = '';
         setCurrentBookUI(null);
         renderBooks();
         renderNotes('', []);
         appSection.classList.add('hidden');
-        signOutBtn.classList.add('hidden');
+        setAuthenticatedUi(false);
         setStatus(authStatus, 'Ты вышел из аккаунта.');
       }
 
@@ -311,50 +346,18 @@
         URL.revokeObjectURL(url);
       }
 
-      async function stopCamera() {
-        if (cameraStream) cameraStream.getTracks().forEach((track) => track.stop());
-        cameraStream = null;
-        cameraVideo.srcObject = null;
-        cameraVideo.classList.add('hidden');
-      }
-
-      async function startCamera() {
-        try {
-          await stopCamera();
-          cameraStream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 } } });
-          cameraVideo.srcObject = cameraStream;
-          cameraVideo.classList.remove('hidden');
-          previewImage.classList.add('hidden');
-          emptyPreview.classList.add('hidden');
-          setStatus(mainStatus, 'Камера включена. Можно сфотографировать страницу.');
-        } catch {
-          setStatus(mainStatus, 'Не удалось открыть камеру. Используй загрузку файла.', 'error');
-        }
-      }
-
       function setImageFromDataUrl(dataUrl, width, height) {
         const img = new Image();
         img.onload = () => {
           image = img;
           previewImage.src = dataUrl;
           previewImage.classList.remove('hidden');
-          cameraVideo.classList.add('hidden');
           emptyPreview.classList.add('hidden');
+          previewBox.classList.add('has-image');
           imageMeta.textContent = `Фото: ${width || img.width}×${height || img.height}`;
+          ocrEditorBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
         };
         img.src = dataUrl;
-      }
-
-      function captureFrame() {
-        if (!cameraStream || !cameraVideo.videoWidth || !cameraVideo.videoHeight) {
-          setStatus(mainStatus, 'Камера ещё не готова.', 'error');
-          return;
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = cameraVideo.videoWidth;
-        canvas.height = cameraVideo.videoHeight;
-        canvas.getContext('2d').drawImage(cameraVideo, 0, 0, canvas.width, canvas.height);
-        setImageFromDataUrl(canvas.toDataURL('image/png'), canvas.width, canvas.height);
       }
 
       function toScanImageDataUrl() {
@@ -437,31 +440,39 @@
         }
       });
 
-      startCameraBtn.addEventListener('click', startCamera);
-      captureBtn.addEventListener('click', captureFrame);
       photoInput.addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        const bitmap = await createImageBitmap(file);
-        const canvas = document.createElement('canvas');
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
-        canvas.getContext('2d').drawImage(bitmap, 0, 0);
-        setImageFromDataUrl(canvas.toDataURL('image/png'), bitmap.width, bitmap.height);
-        setStatus(mainStatus, 'Фото загружено. Теперь можно распознать текст.');
+        try {
+          const bitmap = await createImageBitmap(file);
+          const canvas = document.createElement('canvas');
+          canvas.width = bitmap.width;
+          canvas.height = bitmap.height;
+          canvas.getContext('2d').drawImage(bitmap, 0, 0);
+          setImageFromDataUrl(canvas.toDataURL('image/png'), bitmap.width, bitmap.height);
+          setStatus(mainStatus, 'Фото загружено. Нажми «Распознать текст».');
+        } catch {
+          setStatus(mainStatus, 'Не удалось прочитать фото.', 'error');
+        } finally {
+          photoInput.value = '';
+        }
       });
 
       ocrBtn.addEventListener('click', async () => {
         try {
-          if (!image) throw new Error('Сначала загрузи или сфотографируй страницу.');
+          if (!image) throw new Error('Сначала загрузи страницу.');
           ocrBtn.disabled = true;
+          photoLabel.classList.add('disabled');
           setStatus(mainStatus, 'Распознаю текст...');
           ocrText.value = await runOcr();
+          ocrEditorBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          requestAnimationFrame(() => ocrText.focus());
           setStatus(mainStatus, 'Текст распознан. Его можно поправить и сохранить.', 'ok');
         } catch (error) {
           setStatus(mainStatus, String(error.message || error), 'error');
         } finally {
           ocrBtn.disabled = false;
+          photoLabel.classList.remove('disabled');
         }
       });
 
